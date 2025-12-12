@@ -5,17 +5,16 @@ Bare-bones scaffold to fine-tune `roberta-base` for 3-class dialogue outcome cla
 ### Setup
 
 1. Install deps (uv/pip):
-   - `uv pip install -r pyproject.toml` (or `pip install -e .` if packaging)
-2. Ensure your CSV has columns: `outcome` (negative|neutral|positive) and `transcript`.
+   - `uv sync`
 
 ### Train
 
 ```
-uv run python main.py /path/to/data.csv --epochs 3 --batch-size 8
+uv run python main.py
 ```
 
-Printed metrics include validation macro-F1 (best epoch) and test metrics.
+Printed metrics include validation macro-F1 (best epoch) and all test metrics inside metrics.jsonl.
 
-### Attribution (attention)
+### Attention
 
 Use `conv_transformer.attention.attention_importance(model, tokenizer, text)` to get tokens and normalized attention scores from the CLS token.
