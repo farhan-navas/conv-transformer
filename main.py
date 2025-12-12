@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 
 from classifier.train import TrainConfig, train_model
