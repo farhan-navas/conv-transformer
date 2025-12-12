@@ -10,7 +10,7 @@ def count_values(csv_path: str, field_name: str):
         for r in reader:
             val = r.get(field_name)
             if val is not None:
-                val = val.strip().lower()
+                val = val.strip()
                 counts[val] += 1
 
     return dict(counts)
@@ -25,5 +25,6 @@ if __name__ == "__main__":
 #     'promise to pay': 5995, 
 #     'callback': 20491, 
 #     'wrong number': 3514
-# }, which corresponds to ~~
+# }, which corresponds to ~~\
+# {'Promise to Pay': 5995, 'Callback': 20491, 'Wrong Number': 3514}
 # 19.983% positive, 68.303% intermediate/neutral, 11.713% negative

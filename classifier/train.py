@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
@@ -20,15 +21,19 @@ class TrainConfig:
     max_length: int = 512
     epochs: int = 3
     learning_rate: float = 2e-5
-    num_workers: int = 2
     seed: int = 42
     weight_decay: float = 0.01
     warmup_ratio: float = 0.1
-
+    log_path: str = "metrics.jsonl"
 
 def _to_device(batch: Dict[str, torch.Tensor], device: torch.device) -> Dict[str, torch.Tensor]:
     return {k: v.to(device) for k, v in batch.items()}
 
+
+def _log_metrics(log_path: str, record: Dict) -> None:
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record))
+        f.write("\n")
 
 def _evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.device):
     model.eval()
@@ -49,9 +54,11 @@ def _evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.dev
     per_class_f1 = {k: v.get("f1-score", 0.0) for k, v in per_class.items() if k.isdigit()} # type: ignore
     return accuracy, macro_f1, per_class_f1
 
-
 def train_model(config: TrainConfig) -> Dict[str, float]:
     torch.manual_seed(config.seed)
+
+    if config.log_path:
+        open(config.log_path, "w", encoding="utf-8").close()
 
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     train_ds, val_ds, test_ds, class_weights = load_splits(csv_path=config.csv_path)
@@ -62,8 +69,7 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
         test_ds,
         tokenizer=tokenizer,
         batch_size=config.batch_size,
-        max_length=config.max_length,
-        num_workers=config.num_workers,
+        max_length=config.max_length
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -91,7 +97,7 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
         model.train()
         epoch_loss = 0.0
         progress = tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.epochs}", leave=False)
-        for batch in progress:
+        for idx, batch in enumerate(progress):
             batch = _to_device(batch, device)
             labels = batch.pop("labels")
 
@@ -106,8 +112,24 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
 
             epoch_loss += loss.item()
             progress.set_postfix(loss=loss.item())
+            print(f"We are now at step {idx} of epoch {epoch}")
+
+        train_loss_avg = epoch_loss / max(len(train_loader), 1)
 
         val_acc, val_macro_f1, val_per_class = _evaluate(model, val_loader, device)
+        _log_metrics(
+            config.log_path,
+            {
+                "epoch": epoch + 1,
+                "split": "val",
+                "train_loss": train_loss_avg,
+                "val_accuracy": val_acc,
+                "val_macro_f1": val_macro_f1,
+                "val_per_class_f1": val_per_class,
+            },
+        )
+        print(f"We have now completed epoch {epoch}")
+        print("=" * 80, "\n")
         if val_macro_f1 > best_val_f1:
             best_val_f1 = val_macro_f1
             best_state = model.state_dict()
@@ -117,6 +139,18 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
 
     test_acc, test_macro_f1, test_per_class = _evaluate(model, test_loader, device)
 
+    _log_metrics(
+        config.log_path,
+        {
+            "epoch": config.epochs,
+            "split": "test",
+            "test_accuracy": test_acc,
+            "test_macro_f1": test_macro_f1,
+            "test_per_class_f1": test_per_class,
+            "best_val_macro_f1": best_val_f1,
+        },
+    )
+
     metrics = {
         "val_macro_f1": best_val_f1,
         "test_accuracy": test_acc,
@@ -124,7 +158,6 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
     }
     metrics.update({f"test_f1_class_{k}": v for k, v in test_per_class.items()})
     return metrics
-
 
 def build_collate_and_loader(
     csv_path: str,

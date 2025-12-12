@@ -10,7 +10,6 @@ def _normalize_importance(importance: torch.Tensor, mask: torch.Tensor) -> torch
     total = masked.sum() + 1e-12
     return masked / total
 
-
 def attention_importance(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizerBase,
