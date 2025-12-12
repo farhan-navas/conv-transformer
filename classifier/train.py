@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Tuple
 
 import torch
@@ -25,6 +26,7 @@ class TrainConfig:
     weight_decay: float = 0.01
     warmup_ratio: float = 0.1
     log_path: str = "metrics.jsonl"
+    output_dir: str = "model_out"
 
 def _to_device(batch: Dict[str, torch.Tensor], device: torch.device) -> Dict[str, torch.Tensor]:
     return {k: v.to(device) for k, v in batch.items()}
@@ -56,6 +58,8 @@ def _evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.dev
 
 def train_model(config: TrainConfig) -> Dict[str, float]:
     torch.manual_seed(config.seed)
+    out_dir = Path(config.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     if config.log_path:
         open(config.log_path, "w", encoding="utf-8").close()
@@ -139,6 +143,10 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
 
     test_acc, test_macro_f1, test_per_class = _evaluate(model, test_loader, device)
 
+    # Save the fine-tuned model and tokenizer for reuse.
+    model.save_pretrained(out_dir)
+    tokenizer.save_pretrained(out_dir)
+
     _log_metrics(
         config.log_path,
         {
@@ -154,7 +162,7 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
     metrics = {
         "val_macro_f1": best_val_f1,
         "test_accuracy": test_acc,
-        "test_macro_f1": test_macro_f1,
+        "test_macro_f1": test_macro_f1
     }
     metrics.update({f"test_f1_class_{k}": v for k, v in test_per_class.items()})
     return metrics

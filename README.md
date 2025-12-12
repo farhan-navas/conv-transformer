@@ -10,7 +10,7 @@ Bare-bones scaffold to fine-tune `roberta-base` for 3-class dialogue outcome cla
 ### Train
 
 ```
-uv run python main.py
+uv run main.py
 ```
 
 Printed metrics include validation macro-F1 (best epoch) and all test metrics inside metrics.jsonl.
