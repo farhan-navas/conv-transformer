@@ -13,7 +13,14 @@ def _mask_special(encoded: Dict[str, torch.Tensor], tokenizer: PreTrainedTokeniz
     attention_mask = encoded["attention_mask"][0].clone().float()
     input_ids = encoded["input_ids"][0]
 
-    special = [t for t in (tokenizer.sep_token_id, tokenizer.pad_token_id) if t is not None]
+    special = [ # specifically for roberta
+        t for t in (
+            tokenizer.bos_token_id,  # <s>
+            tokenizer.eos_token_id,  # </s>
+            tokenizer.pad_token_id,  # <pad>
+        )
+        if t is not None
+    ]
     if not special:
         return attention_mask
 
@@ -21,7 +28,6 @@ def _mask_special(encoded: Dict[str, torch.Tensor], tokenizer: PreTrainedTokeniz
     is_special = (input_ids.unsqueeze(-1) == special_t).any(dim=-1)
     attention_mask[is_special] = 0.0
     return attention_mask
-
 
 def predict_with_attention(
     model: PreTrainedModel,
