@@ -24,6 +24,7 @@ def write_jsonl(path: str, rows: List[Dict[str, Any]]) -> None:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
+    print("[build_row_items] start")
     items = []
     for row_idx, row in df.iterrows():
         conv = str(row.get("transcription", "") or "")
@@ -51,10 +52,15 @@ def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
             "outcome": outcome
         })
 
+        if row_idx % 100 == 0:
+            print(f"[build_row_items] processed row {row_idx}")
+
     write_jsonl(CONVERSATIONS_JSONL, items)
+    print(f"[build_row_items] wrote {len(items)} rows to {CONVERSATIONS_JSONL}")
     return items
 
 def build_sentence_embeddings(row_items: List[Dict[str, Any]], embedder: SentenceTransformer):
+    print("[build_sentence_embeddings] start")
     emb_rows: List[Dict[str, Any]] = []
 
     for item in row_items:
@@ -75,7 +81,11 @@ def build_sentence_embeddings(row_items: List[Dict[str, Any]], embedder: Sentenc
                 embeddings[speaker].extend(sent_emb_list)
 
         emb_rows.append({"row_idx": item["row_idx"], "embeddings": embeddings})
+
+        if len(emb_rows) % 100 == 0:
+            print(f"[build_sentence_embeddings] processed {len(emb_rows)} rows")
     
+    print(f"[build_sentence_embeddings] built embeddings for {len(emb_rows)} rows")
     return emb_rows
 
 def _stats(vals: List[int]) -> Dict[str, Any]:
@@ -92,6 +102,7 @@ def _stats(vals: List[int]) -> Dict[str, Any]:
     }
 
 def build_overall_metrics(row_items: List[Dict[str, Any]]):
+    print("[build_overall_metrics] start")
     cats = {
         1: {"label": "positive", "nts": [], "wcs": []},
         0: {"label": "intermediate", "nts": [], "wcs": []},
@@ -114,11 +125,14 @@ def build_overall_metrics(row_items: List[Dict[str, Any]]):
         }
 
     write_json(METRICS_JSON, metrics)
+    print(f"[build_overall_metrics] wrote metrics to {METRICS_JSON}")
 
 def main():
     df = pd.read_csv(INPUT_CSV)
+    print(f"[main] loaded {len(df)} rows from {INPUT_CSV}")
 
     embedder = SentenceTransformer(MODEL_NAME)
+    print(f"[main] loaded model {MODEL_NAME}")
     row_items = build_row_items(df, embedder)
 
     sentence_embeddings = build_sentence_embeddings(row_items, embedder)
