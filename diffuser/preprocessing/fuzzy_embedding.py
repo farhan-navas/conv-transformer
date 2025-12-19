@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-from preprocessing import label_conversation, merge_consecutive, format_dialogue_to_turns, split_utterances
+from diffuser.preprocessing.data_prep import label_conversation, merge_consecutive, format_dialogue_to_turns, split_utterances
 
 INPUT_CSV = "data.csv"
 CONVERSATIONS_JSONL = "conversation_turns.jsonl"
@@ -64,23 +64,29 @@ def build_sentence_embeddings(row_items: List[Dict[str, Any]], embedder: Sentenc
     emb_rows: List[Dict[str, Any]] = []
 
     for item in row_items:
-        embeddings: Dict[str, List[List[float]]] = {}
-        for turn in item.get("conversation_turns", []):
-            for speaker, text in turn.items():
-                sentences = split_utterances(str(text or ""))
-                if not sentences:
-                    continue
+        turn_embs: List[Dict[str, Any]] = []
 
+        for turn in item.get("conversation_turns", []):
+            if not turn:
+                continue
+
+            speaker, text = next(iter(turn.items()))
+            sentences = split_utterances(str(text or ""))
+            sent_emb_list: List[List[float]] = []
+
+            if sentences:
                 sent_emb = embedder.encode(sentences, normalize_embeddings=True)
                 sent_emb_list = sent_emb.tolist() if hasattr(sent_emb, "tolist") else []
-                if not sent_emb_list:
-                    continue
 
-                if speaker not in embeddings:
-                    embeddings[speaker] = []
-                embeddings[speaker].extend(sent_emb_list)
+            turn_embs.append({
+                "speaker": speaker,
+                "embeddings": sent_emb_list,
+            })
 
-        emb_rows.append({"row_idx": item["row_idx"], "embeddings": embeddings})
+        emb_rows.append({
+            "row_idx": item["row_idx"],
+            "conversation_turns": turn_embs,
+        })
 
         if len(emb_rows) % 100 == 0:
             print(f"[build_sentence_embeddings] processed {len(emb_rows)} rows")
