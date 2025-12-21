@@ -1,0 +1,97 @@
+{
+  "row_idx": 0,
+  "conversation_turns": [
+    { "person2": "hello." },
+    { "person1": "yes sir, raheel ji, i am altaf speaking from kato sir." },
+    { "unknown": "can you hear me? yes, i can hear you." },
+    {
+      "person1": "yes. so, as i told you, this kid named hasnain, i was telling you about his campaign. he was a 6 year old kid who had leukemia cancer. and..."
+    },
+    { "person2": "okay." },
+    {
+      "person1": "yes. and i told you about him that he has hardly 2 or 3 days left. because he needs stencil transplant. but his treatment is getting delayed and we are not able to meet all the requirements. that's why we are connecting with all our allah's people who have helped us before."
+    },
+    { "unknown": "so that we can help this child." },
+    {
+      "person1": "and you have helped us before. so if possible raheel ji, you come forward for this child."
+    },
+    {
+      "unknown": "as a sadqa or zakat 5 or 6, whatever is available in your heart and pocket."
+    },
+    { "person1": "if you come forward, we can save this child's life." },
+    { "unknown": "so that is why you have come to sir. send me the qr code." },
+    {
+      "person1": "yes, i have sent you the details of whatsapp. i will guide you, sir, how you can do it."
+    },
+    {
+      "person2": "look, i am very strong. give me your mobile number. give me your mobile number, i will transfer it to your mobile number. i will not do it on qr."
+    },
+    {
+      "person1": "you can do it on your own, sir. i am telling you that. i am guiding you. check it once. i have sent you the details of the campaign on whatsapp. which will come from kato's official number."
+    },
+    { "unknown": "check the full details. do something only after that, sir." },
+    {
+      "person1": "check it once. yes, i have sent it on whatsapp. sir, have you sent it on whatsapp? yes. i have sent it on the same number. on the same number. yes. i have sent you the same number on which i am talking right now. kato's official number."
+    },
+    { "unknown": "it didn't come. it didn't come." },
+    { "person1": "sir, does your network work when you are on call?" },
+    { "unknown": "yes, it works. yes?" },
+    { "person2": "yes, the network works." },
+    {
+      "person1": "sir, it is possible that it is not working because of network issue and we are on call."
+    },
+    { "unknown": "it is possible because of that." },
+    { "person1": "can i email you the details of the campaign?" },
+    {
+      "unknown": "give me the number. give me the number and i will give you the answer."
+    },
+    {
+      "person1": "sir, if you say, i can send you a request. whatever app you use, on google, on phone, whatever, you can get online..."
+    },
+    {
+      "person2": "sir, altaf, you just give me a mobile number from which i can transfer."
+    },
+    { "person1": "sir, how can i give you such a mobile number?" },
+    { "unknown": "because it goes directly to him, sir." },
+    {
+      "person1": "as soon as you donate, it goes to his account, sir. i don't have a mobile number. no, no, you don't have to scan. i'll tell you. the link i sent you just now, it's on whatsapp. those are the details of our campaign. in that, as soon as you click, you will reach our campaign. if you do a use story there, the whole campaign will open in front of you. then you scroll down."
+    },
+    {
+      "person2": "sir, i have not received any message from you, then where will you send it? tell me. yes, i am saying the same."
+    },
+    {
+      "person1": "it may be that whatsapp is happening here sometimes. that if you are on the call, you are not getting it. so once i cut the call and put it back to you. in a minute."
+    },
+    { "person2": "and do one thing for me, you note my gmail id." },
+    { "person1": "yes, just a moment. yes, tell me. r.a.h.w.l. r.a.h.w.l." },
+    { "unknown": "h.w.l. 186, at the rate. 186, at the rate." },
+    { "person1": "yes, sir." },
+    { "unknown": "check if you are interested." },
+    {
+      "person1": "i have sent it to you. it will come from my kato's official id. altaf.hussain at the rate kato.owaj. check if you got it. check both promotion and spam."
+    },
+    {
+      "unknown": "because sometimes, whatever comes through companies, google puts it in these two folders."
+    },
+    { "person1": "yes." },
+    {
+      "person2": "i will call you back. i will call you back. if i understand, i will hang up."
+    },
+    { "person1": "yes, otherwise i will call you back in 5 minutes." },
+    { "person2": "if you don't call me back, i will hang up." },
+    {
+      "person1": "if you don't get it, how will it happen? that's why i was telling you."
+    },
+    { "person2": "yes, i got a mail. there is a mail in the name of mother." },
+    { "person1": "yes," },
+    { "person2": "i am sorry, i am sorry, i am sorry, sir." },
+    { "unknown": "do whatever you can." },
+    { "person1": "may allah reward you for this." },
+    {
+      "unknown": "this is what i pray for. i would like to apologize if you have any problem from my side, but that is not my intention."
+    }
+  ],
+  "number_of_turns": 49,
+  "word_count": 894,
+  "outcome": 1
+}
