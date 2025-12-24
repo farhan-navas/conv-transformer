@@ -5,6 +5,9 @@ from typing import List
 
 import numpy as np
 import torch
+from preprocessing.fuzzy_embedding import EMBEDDINGS_JSONL
+
+NPY_PATH = "sentence_embeddings.npy"
 
 def set_seed(seed: int = 42):
     random.seed(seed)
@@ -16,25 +19,15 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12):
     norms = np.linalg.norm(x, axis=1, keepdims=True)
     return x / (norms + eps)
 
-def ensure_embeddings_npy(
-    jsonl_path: str,
-    npy_path: str,
-    l2_norm: bool = True,
-) -> np.ndarray:
+def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
     if os.path.exists(npy_path):
         arr = np.load(npy_path)
         return arr.astype(np.float32, copy=False)
 
-    os.makedirs(os.path.dirname(npy_path), exist_ok=True)
-
     embs: List[np.ndarray] = []
-    with open(jsonl_path, "r", encoding="utf-8") as f:
-        for line in f:
-            # TODO: FIX!!! according to sentence_embeddings.jsonl shape
-            line = line.strip()
-            obj = json.loads(line)
-            vec = np.asarray(obj["embeddings"], dtype=np.float32)
-            embs.append(vec)
+    for obj in read_jsonl(EMBEDDINGS_JSONL):
+        vec = np.asarray(obj["embeddings"], dtype=np.float32)
+        embs.append(vec)
 
     if not embs:
         raise ValueError("No embeddings found in jsonl")
@@ -47,7 +40,6 @@ def ensure_embeddings_npy(
     np.save(npy_path, arr)
     return arr
 
-
 def read_jsonl(jsonl_path: str) -> List[dict]:
     rows: List[dict] = []
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -58,13 +50,12 @@ def read_jsonl(jsonl_path: str) -> List[dict]:
             rows.append(json.loads(line))
     return rows
 
-
 def write_jsonl(jsonl_path: str, rows: List[dict]) -> None:
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
-
+# basically measure how many codes in the codebook are effectively used
 @torch.no_grad()
 def codebook_perplexity(indices: torch.Tensor, num_codes: int) -> float:
     if indices.numel() == 0:
