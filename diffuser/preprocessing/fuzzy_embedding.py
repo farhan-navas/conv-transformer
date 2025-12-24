@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-from diffuser.preprocessing.data_prep import label_conversation, merge_consecutive, format_dialogue_to_turns, split_utterances
+from data_prep import label_conversation, merge_consecutive, format_dialogue_to_turns, split_utterances
 
 INPUT_CSV = "data.csv"
 CONVERSATIONS_JSONL = "conversation_turns.jsonl"

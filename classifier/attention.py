@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 from torch.nn.functional import softmax
 from transformers import PreTrainedTokenizerBase, PreTrainedModel, AutoTokenizer, AutoModelForSequenceClassification
-from classifier.data import DATA_COLUMN, LABEL_COLUMN, LABEL_MAP
+from data import DATA_COLUMN, LABEL_COLUMN
 
 DATASET_SIZE = 30000
 OUTPUT_FILE = "attention_scores.jsonl"
