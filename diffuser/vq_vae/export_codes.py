@@ -8,14 +8,13 @@ from utils import ensure_embeddings_npy
 from dataset import EmbeddingDataset
 from model import VQVAE
 
-# ---- HARD-CODED PATHS (minimal) ----
-JSONL_IN = "data/sentences.jsonl"
-NPY_PATH = "data/embeddings.npy"
+# change this later, put in data/
+JSONL_IN = "sentence_embeddings.jsonl"
+NPY_PATH = "embeddings.npy"
 CKPT_PATH = "checkpoints/vqvae.pt"
-JSONL_OUT = "data/sentences_with_cluster_id.jsonl"
+JSONL_OUT = "sentences_with_cluster_id.jsonl"
 
 BATCH_SIZE = 512
-# -----------------------------------
 
 def main():
     ckpt = torch.load(CKPT_PATH, map_location="cpu")

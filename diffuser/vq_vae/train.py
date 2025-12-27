@@ -7,11 +7,11 @@ from dataset import EmbeddingDataset
 from model import VQVAE
 from losses import vqvae_loss
 
-# ---- HARD-CODED CONFIG (minimal) ----
+# put all in yaml file later
 SEED = 42
 
-JSONL_PATH = "data/sentences.jsonl"
-NPY_PATH = "data/embeddings.npy"
+JSONL_PATH = "sentence_embeddings.jsonl"
+NPY_PATH = "embeddings.npy"
 
 CKPT_DIR = "checkpoints"
 CKPT_PATH = os.path.join(CKPT_DIR, "vqvae.pt")
@@ -19,6 +19,7 @@ CKPT_PATH = os.path.join(CKPT_DIR, "vqvae.pt")
 BATCH_SIZE = 256
 EPOCHS = 10
 LR = 1e-3
+LOG_EVERY = 100  # batches
 
 # Model
 NUM_CODES = 128
@@ -27,7 +28,6 @@ HIDDEN = 256
 BETA = 0.25
 
 L2_NORM_EMBS = True
-# ------------------------------------
 
 def main():
     set_seed(SEED)
@@ -51,6 +51,10 @@ def main():
         beta=BETA,
     ).to(device)
 
+    # Minimal model summary
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"[model] {model.__class__.__name__} params={num_params:,} dim_in={dim_in} latent={LATENT_DIM} codes={NUM_CODES} hidden={HIDDEN} beta={BETA}")
+
     opt = torch.optim.Adam(model.parameters(), lr=LR)
     os.makedirs(CKPT_DIR, exist_ok=True)
 
@@ -73,6 +77,15 @@ def main():
 
             running += loss.item()
             steps += 1
+
+            if steps % LOG_EVERY == 0:
+                with torch.no_grad():
+                    perp_batch = codebook_perplexity(out["indices"].detach().cpu(), NUM_CODES)
+                print(
+                    f"  [batch {steps}] loss={logs['total']:.6f} recon={logs['recon']:.6f} "
+                    f"vq={logs['vq']:.6f} cb={logs['cb']:.6f} commit={logs['commit']:.6f} "
+                    f"perplexity={perp_batch:.2f}"
+                )
 
         avg = running / max(steps, 1)
 

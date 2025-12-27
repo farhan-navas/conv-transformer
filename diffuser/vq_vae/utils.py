@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from preprocessing.fuzzy_embedding import EMBEDDINGS_JSONL
 
-NPY_PATH = "sentence_embeddings.npy"
+NPY_PATH = "embeddings.npy"
 
 def set_seed(seed: int = 42):
     random.seed(seed)
@@ -27,11 +27,20 @@ def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
     # Collect all 1D vectors from the JSONL, preserving order.
     vectors: List[np.ndarray] = []
     dim: int = -1
+    rows_total = 0
+    empty_rows = 0
+    empty_turns = 0
+    turns_total = 0
 
     for obj in read_jsonl(EMBEDDINGS_JSONL):
+        rows_total += 1
+        row_vectors_before = len(vectors)
+
         # New format: list of turns, each with a list of sentence embeddings
         if "conversation_turns" in obj:
             for turn in obj.get("conversation_turns", []):
+                turns_total += 1
+                turn_vectors_before = len(vectors)
                 for emb in turn.get("embeddings", []):
                     vec = np.asarray(emb, dtype=np.float32)
                     if vec.ndim != 1:
@@ -41,6 +50,8 @@ def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
                     elif vec.shape[0] != dim:
                         raise ValueError(f"Inconsistent embedding dim: expected {dim}, got {vec.shape[0]}")
                     vectors.append(vec)
+                if len(vectors) == turn_vectors_before:
+                    empty_turns += 1
         # Legacy format: single embedding per row under 'embeddings'
         elif "embeddings" in obj:
             vec = np.asarray(obj["embeddings"], dtype=np.float32)
@@ -51,11 +62,22 @@ def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
             elif vec.shape[0] != dim:
                 raise ValueError(f"Inconsistent embedding dim: expected {dim}, got {vec.shape[0]}")
             vectors.append(vec)
+            turns_total += 1
+        if len(vectors) == row_vectors_before:
+            empty_rows += 1
 
     if not vectors:
         raise ValueError("No embeddings found in jsonl")
 
     arr = np.stack(vectors, axis=0).astype(np.float32, copy=False)  # [N, D]
+
+    print(
+        f"[embeddings] rows={rows_total} turns={turns_total} vectors={len(vectors)} "
+        f"dim={dim if dim != -1 else 'unknown'} empty_rows={empty_rows} empty_turns={empty_turns}"
+    )
+
+    if empty_rows or empty_turns:
+        print("[embeddings] warning: some rows/turns had no embeddings; they were skipped")
 
     if l2_norm:
         arr = l2_normalize(arr)
