@@ -24,19 +24,45 @@ def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
         arr = np.load(npy_path)
         return arr.astype(np.float32, copy=False)
 
-    embs: List[np.ndarray] = []
-    for obj in read_jsonl(EMBEDDINGS_JSONL):
-        vec = np.asarray(obj["embeddings"], dtype=np.float32)
-        embs.append(vec)
+    # Collect all 1D vectors from the JSONL, preserving order.
+    vectors: List[np.ndarray] = []
+    dim: int = -1
 
-    if not embs:
+    for obj in read_jsonl(EMBEDDINGS_JSONL):
+        # New format: list of turns, each with a list of sentence embeddings
+        if "conversation_turns" in obj:
+            for turn in obj.get("conversation_turns", []):
+                for emb in turn.get("embeddings", []):
+                    vec = np.asarray(emb, dtype=np.float32)
+                    if vec.ndim != 1:
+                        raise ValueError(f"Expected 1D embedding vector, got shape {vec.shape}")
+                    if dim == -1:
+                        dim = vec.shape[0]
+                    elif vec.shape[0] != dim:
+                        raise ValueError(f"Inconsistent embedding dim: expected {dim}, got {vec.shape[0]}")
+                    vectors.append(vec)
+        # Legacy format: single embedding per row under 'embeddings'
+        elif "embeddings" in obj:
+            vec = np.asarray(obj["embeddings"], dtype=np.float32)
+            if vec.ndim != 1:
+                raise ValueError(f"Expected 1D embedding vector, got shape {vec.shape}")
+            if dim == -1:
+                dim = vec.shape[0]
+            elif vec.shape[0] != dim:
+                raise ValueError(f"Inconsistent embedding dim: expected {dim}, got {vec.shape[0]}")
+            vectors.append(vec)
+
+    if not vectors:
         raise ValueError("No embeddings found in jsonl")
 
-    arr = np.stack(embs, axis=0).astype(np.float32, copy=False)  # [N, D]
+    arr = np.stack(vectors, axis=0).astype(np.float32, copy=False)  # [N, D]
 
     if l2_norm:
         arr = l2_normalize(arr)
 
+    dir_name = os.path.dirname(npy_path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     np.save(npy_path, arr)
     return arr
 
