@@ -5,8 +5,8 @@ from typing import List
 
 import numpy as np
 import torch
-from preprocessing.fuzzy_embedding import EMBEDDINGS_JSONL
 
+EMBEDDINGS_JSONL = "sentence_embeddings.jsonl"
 NPY_PATH = "embeddings.npy"
 
 def set_seed(seed: int = 42):

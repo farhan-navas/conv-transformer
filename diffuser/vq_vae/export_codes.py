@@ -12,7 +12,7 @@ from model import VQVAE
 JSONL_IN = "sentence_embeddings.jsonl"
 NPY_PATH = "embeddings.npy"
 CKPT_PATH = "checkpoints/vqvae.pt"
-JSONL_OUT = "sentences_with_cluster_id.jsonl"
+JSONL_OUT = "sentence_cluster_ids.jsonl"
 
 BATCH_SIZE = 512
 
@@ -40,19 +40,46 @@ def main():
             ids = out["indices"].detach().cpu().numpy().tolist()
             all_ids.extend(ids)
 
-    # Write out JSONL with cluster_id added (same order)
-    i = 0
+    # Write out JSONL with cluster_ids aggregated per speaker per original row
+    idx = 0
+    written = 0
     with open(JSONL_IN, "r", encoding="utf-8") as fin, open(JSONL_OUT, "w", encoding="utf-8") as fout:
         for line in fin:
             line = line.strip()
             if not line:
                 continue
-            obj = json.loads(line)
-            obj["cluster_id"] = int(all_ids[i])
-            i += 1
-            fout.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
-    print(f"[done] wrote {i} rows to {JSONL_OUT}")
+            obj = json.loads(line)
+
+            speakers: dict = {}
+            turns = obj.get("conversation_turns", [])
+            for turn in turns:
+                if not turn:
+                    continue
+                speaker = turn.get("speaker") or next(iter(turn.keys()))
+                emb_list = turn.get("embeddings", [])
+                count = len(emb_list)
+                if count == 0:
+                    continue
+                # slice cluster ids for this turn
+                turn_ids = all_ids[idx: idx + count]
+                idx += count
+                speakers.setdefault(speaker, []).extend(int(cid) for cid in turn_ids)
+
+            out_row = {
+                "row_idx": obj.get("row_idx"),
+                "speakers": [
+                    {"speaker": spk, "cluster_ids": ids}
+                    for spk, ids in speakers.items()
+                ],
+            }
+            written += 1
+            fout.write(json.dumps(out_row, ensure_ascii=False) + "\n")
+
+    if idx != len(all_ids):
+        print(f"[warn] consumed {idx} cluster ids, but {len(all_ids)} were computed; some ids may be unused")
+
+    print(f"[done] wrote {written} rows to {JSONL_OUT}")
     print(f"[codes] num_codes={num_codes}, used_unique={len(set(all_ids))}")
 
 if __name__ == "__main__":
