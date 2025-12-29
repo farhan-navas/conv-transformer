@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from utils import ensure_embeddings_npy
 from dataset import EmbeddingDataset
 from model import VQVAE
 
