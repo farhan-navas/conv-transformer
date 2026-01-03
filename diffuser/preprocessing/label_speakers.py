@@ -7,11 +7,6 @@ import joblib
 from multiprocessing.dummy import Pool as ThreadPool
 from tqdm import tqdm
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from scipy.sparse import csr_matrix, hstack
-from scipy import sparse
-from sentence_transformers import SentenceTransformer
-
 INPUT_CSV = "data.csv"
 OUTPUT_CSV = "data-human.csv"
 
@@ -29,9 +24,15 @@ RE_PHONE = re.compile(r"""
     (?<!\w)                                  # no letter/digit before
     (?:\+?\d{1,3}[\s\-\(\)]*)?               # optional country code
     (?:\(?\d{2,4}\)?[\s\-\(\)]*){2,3}        # middle groups
-    \d{3,4}                                   # final group
+    \d{3,4}                                  # final group
     (?!\w)                                   # no letter/digit after
 """, re.VERBOSE)
+
+DESIRED_COLS = [
+    "call_date", "entity_details_id", "call_duration", "call_response",
+    "audio_file_path", "Caller", "Disposition", "transcription",
+    "channel_text", "channel", 'channel_clean'
+]
 
 def build_stacked(df: pd.DataFrame) -> pd.DataFrame:
     # preserve original order without leaving helper cols behind
@@ -144,14 +145,6 @@ def clean_text(
     )
     return s
 
-
-DESIRED_COLS = [
-    "call_date", "entity_details_id", "call_duration", "call_response",
-    "audio_file_path", "Caller", "Disposition", "transcription",
-    "channel_text", "channel", 'channel_clean'
-]
-
-
 def prepare_text(df: pd.DataFrame, text_col: str = "channel_text") -> pd.DataFrame:
     """
     Clean the specified text_col and KEEP all requested metadata columns.
@@ -212,11 +205,14 @@ def main():
     df_stacked = build_stacked(dataset)
     df_stacked_clean = prepare_text(df_stacked, text_col="channel_text")
 
-    role_model = joblib.load("CLEAN_agent_donor.joblib")
+    role_model = joblib.load("diffuser/preprocessing/CLEAN_agent_donor.joblib")
     df_human = df_stacked_clean.copy()
-    preds, labels, confs = predict_role_batch(df_human["text_clean"].tolist(), joblib)
+    preds, labels, confs = predict_role_batch(df_human["text_clean"].tolist(), role_model)
 
     df_human["role_label"] = labels
     df_human["role_confidence"] = np.round(confs, 3)
 
     df_human.to_csv(OUTPUT_CSV, index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
+
+if __name__ == "__main__":
+    main()

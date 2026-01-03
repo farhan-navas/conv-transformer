@@ -142,12 +142,12 @@ def format_dialogue_to_turns(merged):
         out.append({tag: x.get("text", "")})
     return out
 
-if __name__ == "__main__":
-    embedder = SentenceTransformer(MODEL_NAME)
+# if __name__ == "__main__":
+#     embedder = SentenceTransformer(MODEL_NAME)
 
-    # JUST FOR EXAMPLE USAGE
-    conversation, person1, person2 = "...", "...", "..."
+#     # JUST FOR EXAMPLE USAGE
+#     conversation, person1, person2 = "...", "...", "..."
 
-    labeled = label_conversation(conversation, person1, person2, embedder)
-    merged = merge_consecutive(labeled)
-    print(format_dialogue_to_str(merged))
+#     labeled = label_conversation(conversation, person1, person2, embedder)
+#     merged = merge_consecutive(labeled)
+#     print(format_dialogue_to_str(merged))

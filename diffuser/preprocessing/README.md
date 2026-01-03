@@ -8,8 +8,7 @@ This directory contains a speech-cleaning and identification pipeline. The prepr
 
 - [Cleaning_Identification/label_speakers.py](Cleaning_Identification/label_speakers.py) - Cleaning script with premade model implementation by MComp student ...
 - [Cleaning_Identification/CLEAN_agent_donor.joblib](Cleaning_Identification/CLEAN_agent_donor.joblib) — saved joblib pipeline/model (sklearn Pipeline + TfidfVectorizer, etc.).
-- [Cleaning_Identification/dummydataset.csv](Cleaning_Identification/dummydataset.csv) — example CSV used by the notebook.
 
 ## Quick start
 
-1. Run label_speakers.py before running fuzzy_embeddings.py
+1. Run label_speakers.py before running fuzzy_embeddings.py, this does not work now though, TODO: need to fix
