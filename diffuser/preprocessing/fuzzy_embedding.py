@@ -6,7 +6,7 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 from data_prep import label_conversation, merge_consecutive, format_dialogue_to_turns, split_utterances
 
-INPUT_CSV = "data.csv"
+INPUT_CSV = "data-human.csv"
 CONVERSATIONS_JSONL = "conversation_turns.jsonl"
 EMBEDDINGS_JSONL = "sentence_embeddings.jsonl"
 METRICS_JSON = "overall_metrics.json"
