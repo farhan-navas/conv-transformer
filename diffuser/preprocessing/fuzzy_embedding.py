@@ -11,8 +11,13 @@ CONVERSATIONS_JSONL = "conversation_turns.jsonl"
 EMBEDDINGS_JSONL = "sentence_embeddings.jsonl"
 METRICS_JSON = "overall_metrics.json"
 
-TARGET_COLUMNS = ["transcription", "transcription_ch0", "transcription_ch1"]
+# TARGET_COLUMNS = ["transcription", "transcription_ch0", "transcription_ch1"]
 MODEL_NAME = "all-MiniLM-L6-v2"
+
+# New stacked input schema (one row per channel)
+STACKED_COLS = [
+    "transcription", "channel_text", "channel", "Disposition", "orig_idx",
+]
 
 def write_json(path: str, obj: Dict[str, Any]) -> None:
     with open(path, "w", encoding="utf-8") as f:
@@ -23,37 +28,84 @@ def write_jsonl(path: str, rows: List[Dict[str, Any]]) -> None:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
+def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Rebuild per-conversation records from stacked channel rows."""
+    missing = [c for c in STACKED_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
+    grouped = df.groupby("orig_idx", sort=False)
+    records: List[Dict[str, Any]] = []
+    for gid, g in grouped:
+        conv = str(g["transcription"].iloc[0] or "")
+        disp = str(g["Disposition"].iloc[0] or "")
+        ch0 = g.loc[g["channel"] == "ch0", "channel_text"].astype(str)
+        ch1 = g.loc[g["channel"] == "ch1", "channel_text"].astype(str)
+        p1 = ch0.iloc[0] if len(ch0) else ""
+        p2 = ch1.iloc[0] if len(ch1) else ""
+
+        if not conv and not p1 and not p2:
+            continue
+
+        len_conv = len(conv.split())
+        if len_conv == 0:
+            len_conv = len((p1 + " " + p2).split())
+
+        records.append({
+            "orig_idx": gid,
+            "transcription": conv,
+            "p1": p1,
+            "p2": p2,
+            "disposition": disp,
+            "word_count": len_conv,
+        })
+    return records
+
+
+def _map_outcome(disp: str) -> int:
+    if disp == "Promise to Pay":
+        return 1
+    if disp == "Callback":
+        return 0
+    return -1
+
 def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
     print("[build_row_items] start")
     items = []
-    for row_idx, row in df.iterrows():
-        conv = str(row.get("transcription", "") or "")
-        len_conv = len(conv.split())
-        disp = str(row.get("Disposition", ""))
-        outcome = None
-        if disp == "Promise to Pay":
-            outcome = 1 # Positive
-        elif disp == "Callback":
-            outcome = 0 # Intermediate
-        else:
-            outcome = -1 # Negative
+    # If dataset is stacked (channel per row), rebuild conversations first
+    if "channel" in df.columns and "channel_text" in df.columns:
+        rows = _aggregate_stacked(df)
+    else:
+        # fallback to old schema
+        rows = [{
+            "orig_idx": idx,
+            "transcription": str(row.get("transcription", "") or ""),
+            "p1": str(row.get("transcription_ch0", "") or ""),
+            "p2": str(row.get("transcription_ch1", "") or ""),
+            "disposition": str(row.get("Disposition", "")),
+            "word_count": len(str(row.get("transcription", "") or "").split()),
+        } for idx, row in df.iterrows()]
 
-        p1 = str(row.get("transcription_ch0", "") or "")
-        p2 = str(row.get("transcription_ch1", "") or "")
+    for rec in rows:
+        conv = rec["transcription"]
+        p1 = rec["p1"]
+        p2 = rec["p2"]
+        len_conv = rec["word_count"]
+        outcome = _map_outcome(rec.get("disposition", ""))
 
         labeled = label_conversation(conv, p1, p2, embedder)
         merged = merge_consecutive(labeled)
         formatted = format_dialogue_to_turns(merged)
         items.append({
-            "row_idx": int(row_idx), 
-            "conversation_turns": formatted, 
-            "number_of_turns": len(formatted), 
+            "row_idx": int(rec["orig_idx"]),
+            "conversation_turns": formatted,
+            "number_of_turns": len(formatted),
             "word_count": len_conv,
-            "outcome": outcome
+            "outcome": outcome,
         })
 
-        if row_idx % 100 == 0:
-            print(f"[build_row_items] processed row {row_idx}")
+        if len(items) % 100 == 0:
+            print(f"[build_row_items] processed row {len(items)}")
 
     write_jsonl(CONVERSATIONS_JSONL, items)
     print(f"[build_row_items] wrote {len(items)} rows to {CONVERSATIONS_JSONL}")
