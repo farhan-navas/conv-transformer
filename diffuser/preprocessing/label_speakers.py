@@ -162,7 +162,7 @@ def prepare_text(df: pd.DataFrame, text_col: str = "channel_text") -> pd.DataFra
     keep_cols = list(dict.fromkeys(present_cols + [text_col]))  # de-dup while preserving order
     D = df.loc[:, keep_cols].copy()
 
-    D = D.dropna(subset=[text_col])
+    # D = D.dropna(subset=[text_col])  # remove NaN/empty text rows
     D["orig_idx"] = D.index
 
     texts = D[text_col].astype(str).tolist()
@@ -176,8 +176,8 @@ def prepare_text(df: pd.DataFrame, text_col: str = "channel_text") -> pd.DataFra
         )
 
     before = len(D)
-    D = D[D["text_clean"].str.strip() != ""].reset_index(drop=True)
-    print(f"[INFO] Cleaning complete. Retained {len(D):,}/{before:,} rows.")
+    # D = D[D["text_clean"].str.strip() != ""].reset_index(drop=True)
+    print(f"[INFO] Cleaning complete. Retained {len(D):,}/{before:,} rows (no post-filter).")
 
     final_cols = present_cols + ["orig_idx", "text_clean"]
     D = D.loc[:, final_cols]

@@ -95,6 +95,7 @@ def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
 
         labeled = label_conversation(conv, p1, p2, embedder)
         merged = merge_consecutive(labeled)
+        merged = [m for m in merged if m.get("speaker") != "unknown"]
         formatted = format_dialogue_to_turns(merged)
         items.append({
             "row_idx": int(rec["orig_idx"]),
