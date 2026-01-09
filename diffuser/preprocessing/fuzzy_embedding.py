@@ -54,10 +54,13 @@ def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
         donor_row = donors.iloc[0] if len(donors) else None
 
         # If both labels are the same or one is missing, take top confidence as agent then next-best as donor
-        if agent_row is None or donor_row is None:
-            ordered = g.sort_values("role_confidence", ascending=False)
-            agent_row = agent_row or (ordered.iloc[0] if len(ordered) else None)
-            donor_row = donor_row or (ordered.iloc[1] if len(ordered) > 1 else None)
+        ordered = g.sort_values("role_confidence", ascending=False)
+
+        if agent_row is None and len(ordered) > 0:
+            agent_row = ordered.iloc[0]
+
+        if donor_row is None and len(ordered) > 1:
+            donor_row = ordered.iloc[1]        
 
         agent_text = str(agent_row["channel_text"]) if agent_row is not None else ""
         donor_text = str(donor_row["channel_text"]) if donor_row is not None else ""
@@ -92,11 +95,10 @@ def _map_outcome(disp: str) -> int:
 def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
     print("[build_row_items] start")
     items = []
-    # If dataset is stacked (channel per row), rebuild conversations first
+    # If dataset is stacked (channel per row), rebuild convs first
     if "channel" in df.columns and "channel_text" in df.columns:
         rows = _aggregate_stacked(df)
     else:
-        # fallback to old schema
         rows = [{
             "orig_idx": idx,
             "transcription": str(row.get("transcription", "") or ""),
