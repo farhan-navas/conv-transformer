@@ -35,9 +35,12 @@ def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
-    grouped = df.groupby("orig_idx", sort=False)
+    df = df.copy()
+    df["conv_id"] = (pd.to_numeric(df["orig_idx"], errors="coerce").astype(int) // 2)
+
+    grouped = df.groupby("conv_id", sort=False)
     records: List[Dict[str, Any]] = []
-    for gid, g in grouped:
+    for conv_id, g in grouped:
         g = g.copy()
         g["role_label"] = g["role_label"].astype(str).str.lower()
 
@@ -47,23 +50,16 @@ def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
         conv = str(g["transcription"].iloc[0] or "")
         disp = str(g["Disposition"].iloc[0] or "")
 
-        agents = g[g["role_label"] == "agent"].sort_values("role_confidence", ascending=False)
-        donors = g[g["role_label"] == "donor"].sort_values("role_confidence", ascending=False)
-
-        agent_row = agents.iloc[0] if len(agents) else None
-        donor_row = donors.iloc[0] if len(donors) else None
-
-        # If both labels are the same or one is missing, take top confidence as agent then next-best as donor
         ordered = g.sort_values("role_confidence", ascending=False)
+        primary = ordered.iloc[0]
+        secondary = ordered.iloc[1]
 
-        if agent_row is None and len(ordered) > 0:
-            agent_row = ordered.iloc[0]
-
-        if donor_row is None and len(ordered) > 1:
-            donor_row = ordered.iloc[1]        
-
-        agent_text = str(agent_row["channel_text"]) if agent_row is not None else ""
-        donor_text = str(donor_row["channel_text"]) if donor_row is not None else ""
+        if str(primary["role_label"]) == "agent":
+            agent_text = str(primary["channel_text"])
+            donor_text = str(secondary["channel_text"])
+        else:
+            donor_text = str(primary["channel_text"])
+            agent_text = str(secondary["channel_text"])
 
         if not conv and not agent_text and not donor_text:
             continue
@@ -74,7 +70,7 @@ def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
 
         # we just always set p1 to agent, and then p2 to donor, once classified
         records.append({
-            "orig_idx": gid,
+            "orig_idx": conv_id,
             "transcription": conv,
             "p1": agent_text,
             "p2": donor_text,
