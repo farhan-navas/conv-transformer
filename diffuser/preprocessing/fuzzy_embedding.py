@@ -17,6 +17,7 @@ MODEL_NAME = "all-MiniLM-L6-v2"
 # New stacked input schema (one row per channel)
 STACKED_COLS = [
     "transcription", "channel_text", "channel", "Disposition", "orig_idx",
+    "role_label", "role_confidence",
 ]
 
 def write_json(path: str, obj: Dict[str, Any]) -> None:
@@ -29,7 +30,7 @@ def write_jsonl(path: str, rows: List[Dict[str, Any]]) -> None:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """Rebuild per-conversation records from stacked channel rows."""
+    """Rebuild per-conversation records from the stacked channel rows using role labels/confidence."""
     missing = [c for c in STACKED_COLS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
@@ -37,28 +38,47 @@ def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
     grouped = df.groupby("orig_idx", sort=False)
     records: List[Dict[str, Any]] = []
     for gid, g in grouped:
+        g = g.copy()
+        g["role_label"] = g["role_label"].astype(str).str.lower()
+
+        # get confidence, set to 0.0 if error or invalid
+        g["role_confidence"] = pd.to_numeric(g["role_confidence"], errors="coerce").fillna(0.0)
+
         conv = str(g["transcription"].iloc[0] or "")
         disp = str(g["Disposition"].iloc[0] or "")
-        ch0 = g.loc[g["channel"] == "ch0", "channel_text"].astype(str)
-        ch1 = g.loc[g["channel"] == "ch1", "channel_text"].astype(str)
-        p1 = ch0.iloc[0] if len(ch0) else ""
-        p2 = ch1.iloc[0] if len(ch1) else ""
 
-        if not conv and not p1 and not p2:
+        agents = g[g["role_label"] == "agent"].sort_values("role_confidence", ascending=False)
+        donors = g[g["role_label"] == "donor"].sort_values("role_confidence", ascending=False)
+
+        agent_row = agents.iloc[0] if len(agents) else None
+        donor_row = donors.iloc[0] if len(donors) else None
+
+        # If both labels are the same or one is missing, take top confidence as agent then next-best as donor
+        if agent_row is None or donor_row is None:
+            ordered = g.sort_values("role_confidence", ascending=False)
+            agent_row = agent_row or (ordered.iloc[0] if len(ordered) else None)
+            donor_row = donor_row or (ordered.iloc[1] if len(ordered) > 1 else None)
+
+        agent_text = str(agent_row["channel_text"]) if agent_row is not None else ""
+        donor_text = str(donor_row["channel_text"]) if donor_row is not None else ""
+
+        if not conv and not agent_text and not donor_text:
             continue
 
         len_conv = len(conv.split())
         if len_conv == 0:
-            len_conv = len((p1 + " " + p2).split())
+            len_conv = len((agent_text + " " + donor_text).split())
 
+        # we just always set p1 to agent, and then p2 to donor, once classified
         records.append({
             "orig_idx": gid,
             "transcription": conv,
-            "p1": p1,
-            "p2": p2,
+            "p1": agent_text,
+            "p2": donor_text,
             "disposition": disp,
             "word_count": len_conv,
         })
+        
     return records
 
 
@@ -96,6 +116,11 @@ def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
         labeled = label_conversation(conv, p1, p2, embedder)
         merged = merge_consecutive(labeled)
         merged = [m for m in merged if m.get("speaker") != "unknown"]
+        for m in merged:
+            if m.get("speaker") == "person1":
+                m["speaker"] = "agent"
+            elif m.get("speaker") == "person2":
+                m["speaker"] = "donor"
         formatted = format_dialogue_to_turns(merged)
         items.append({
             "row_idx": int(rec["orig_idx"]),
