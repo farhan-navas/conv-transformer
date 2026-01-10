@@ -209,7 +209,7 @@ def build_overall_metrics(row_items: List[Dict[str, Any]]):
     write_json(METRICS_JSON, metrics)
     print(f"[build_overall_metrics] wrote metrics to {METRICS_JSON}")
 
-def main():
+def create_embeddings():
     df = pd.read_csv(INPUT_CSV)
     print(f"[main] loaded {len(df)} rows from {INPUT_CSV}")
 
@@ -226,4 +226,4 @@ def main():
     print(f"Model: {MODEL_NAME}")
 
 if __name__ == "__main__":
-    main()
+    create_embeddings()

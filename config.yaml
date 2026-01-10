@@ -1,0 +1,58 @@
+core:
+  run_version: v0.1
+  output_root: runs
+
+classifier:
+  model_name: roberta-base
+  batch_size: 8
+  max_length: 512
+  epochs: 3
+  learning_rate: 0.00002
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  seed: 42
+  model_subdir: model
+  log_filename: metrics.jsonl
+
+attention:
+  output_filename: attention_scores.txt
+  sample_size: 20
+  max_length: 512
+  layer: -1
+  seed: 42
+  # model_dir: optional override; defaults to classifier model output
+
+data:
+  csv_path: data.csv
+  text_column: transcription
+  label_column: Disposition
+  label_map:
+    Wrong Number: 0
+    Callback: 1
+    Promise to Pay: 2
+  val_size: 0.1
+  test_size: 0.1
+  seed: 42
+
+vqvae:
+  jsonl_path: sentence_embeddings.jsonl
+  npy_path: embeddings.npy
+  checkpoint_subdir: checkpoints
+  checkpoint_name: vqvae.pt
+  batch_size: 256
+  epochs: 10
+  learning_rate: 0.001
+  log_every: 100
+  num_codes: 128
+  latent_dim: 128
+  hidden: 256
+  beta: 0.25
+  l2_norm_embs: true
+  seed: 42
+
+export_codes:
+  jsonl_in: sentence_embeddings.jsonl
+  npy_path: embeddings.npy
+  jsonl_out: sentence_cluster_ids.jsonl
+  batch_size: 512
+  # checkpoint_path: optional override; defaults to vqvae checkpoint path

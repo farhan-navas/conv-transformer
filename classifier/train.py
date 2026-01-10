@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -10,11 +10,11 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 
-from .data import ConversationDataset, build_collate_fn, load_splits, make_dataloaders
+from .data import ConversationDataset, DataConfig, build_collate_fn, load_splits, make_dataloaders
 
 @dataclass
 class TrainConfig:
-    csv_path: str
+    data: DataConfig = field(default_factory=DataConfig)
     model_name: str = "roberta-base"
     batch_size: int = 8
     max_length: int = 512
@@ -60,10 +60,14 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if config.log_path:
+        Path(config.log_path).parent.mkdir(parents=True, exist_ok=True)
         open(config.log_path, "w", encoding="utf-8").close()
 
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
-    train_ds, val_ds, test_ds, class_weights = load_splits(csv_path=config.csv_path)
+    train_ds, val_ds, test_ds, class_weights = load_splits(
+        csv_path=config.data.csv_path,
+        data_cfg=config.data,
+    )
 
     train_loader, val_loader, test_loader = make_dataloaders(
         train_ds,
@@ -77,7 +81,7 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = AutoModelForSequenceClassification.from_pretrained(
         config.model_name,
-        num_labels=3,
+        num_labels=len(config.data.label_map),
         output_attentions=True,
     )
     model.to(device)
@@ -171,9 +175,11 @@ def build_collate_and_loader(
     batch_size: int = 8,
     max_length: int = 512,
     num_workers: int = 2,
+    data_cfg: DataConfig | None = None,
 ) -> Tuple[ConversationDataset, ConversationDataset, ConversationDataset, DataLoader, DataLoader, DataLoader]:
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    train_ds, val_ds, test_ds, _ = load_splits(csv_path=csv_path)
+    data_cfg = data_cfg or DataConfig(csv_path=csv_path)
+    train_ds, val_ds, test_ds, _ = load_splits(csv_path=data_cfg.csv_path, data_cfg=data_cfg)
     collate_fn = build_collate_fn(tokenizer=tokenizer, max_length=max_length)
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn

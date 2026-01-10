@@ -1,13 +1,25 @@
-from typing import Dict, List, Iterable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, Iterable, List
 
-import torch
 import pandas as pd
+import torch
 from torch.nn.functional import softmax
-from transformers import PreTrainedTokenizerBase, PreTrainedModel, AutoTokenizer, AutoModelForSequenceClassification
-from data import DATA_COLUMN, LABEL_COLUMN
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
 
-DATASET_SIZE = 30000
-OUTPUT_FILE = "attention_scores.jsonl"
+from .data import DataConfig
+
+
+@dataclass
+class AttentionConfig:
+    data: DataConfig = field(default_factory=DataConfig)
+    model_dir: str = "model_out"
+    output_path: str = "attention_scores.txt"
+    sample_size: int = 20
+    max_length: int = 512
+    layer: int = -1
+    seed: int = 42
+
 
 def _normalize_importance(importance: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     masked = importance * mask
@@ -32,8 +44,9 @@ def _mask_special(encoded: Dict[str, torch.Tensor], tokenizer: PreTrainedTokeniz
     attention_mask[is_special] = 0.0
     return attention_mask
 
-def _sample_indices(n: int, sample_size: int = 20) -> List[int]:
-    rng = torch.Generator().manual_seed(42)
+
+def _sample_indices(n: int, sample_size: int, seed: int) -> List[int]:
+    rng = torch.Generator().manual_seed(seed)
     perm = torch.randperm(n, generator=rng)
     return perm[:min(sample_size, n)].tolist()
 
@@ -57,7 +70,7 @@ def predict_with_attention(
     attentions = outputs.attentions
     last_layer = attentions[layer]
     cls_attn = last_layer.mean(dim=1)[0, 0]
-    attention_mask = _mask_special(encoded, tokenizer) # type: ignore
+    attention_mask = _mask_special(encoded, tokenizer)  # type: ignore
     scores = _normalize_importance(cls_attn, attention_mask)
     tokens = tokenizer.convert_ids_to_tokens(encoded["input_ids"][0])  # type: ignore[index]
 
@@ -69,22 +82,31 @@ def predict_with_attention(
         "attention_scores": scores.cpu().tolist(),
     }
 
-model_dir = "model_out"
-id2label = {0: "Wrong Number", 1: "Callback", 2: "Promise to Pay"}
-tok = AutoTokenizer.from_pretrained(model_dir)
-mdl = AutoModelForSequenceClassification.from_pretrained(model_dir)
 
+def run_attention_dump(config: AttentionConfig) -> None:
+    df = pd.read_csv(config.data.csv_path)
+    id2label = {v: k for k, v in config.data.label_map.items()}
 
-def main():
-    df = pd.read_csv("data.csv")
-    with open(OUTPUT_FILE, mode="w", encoding="utf-8") as f:
-        for i in _sample_indices(len(df), sample_size=20):
+    tokenizer = AutoTokenizer.from_pretrained(config.model_dir)
+    model = AutoModelForSequenceClassification.from_pretrained(config.model_dir)
+
+    out_path = Path(config.output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(out_path, mode="w", encoding="utf-8") as f:
+        for i in _sample_indices(len(df), sample_size=config.sample_size, seed=config.seed):
             ex = df.iloc[i]
-            text = ex[DATA_COLUMN]
-            label = ex[LABEL_COLUMN]
-            res = predict_with_attention(mdl, tok, text, id2label=id2label)
+            text = ex[config.data.text_column]
+            label = ex[config.data.label_column]
+            res = predict_with_attention(
+                model,
+                tokenizer,
+                text,
+                id2label=id2label,
+                max_length=config.max_length,
+                layer=config.layer,
+            )
 
-            # Pair tokens with attention scores for readability
             token_scores = list(zip(res["tokens"], res["attention_scores"]))
 
             f.write(
@@ -93,5 +115,3 @@ def main():
                 f"{'=' * 60}\n\n"
             )
 
-if __name__ == "__main__":
-    main()

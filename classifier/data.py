@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 import pandas as pd
@@ -8,13 +8,21 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Dataset
 from transformers import PreTrainedTokenizerBase, BatchEncoding
 
-LABEL_MAP: Dict[str, int] = {
-    "Wrong Number": 0, # Negative
-    "Callback": 1, # Neutral/Intermediate
-    "Promise to Pay": 2, # Positive
-}
-DATA_COLUMN = "transcription"
-LABEL_COLUMN = "Disposition"
+@dataclass
+class DataConfig:
+    csv_path: str = "data.csv"
+    text_column: str = "transcription"
+    label_column: str = "Disposition"
+    label_map: Dict[str, int] = field(
+        default_factory=lambda: {
+            "Wrong Number": 0,
+            "Callback": 1,
+            "Promise to Pay": 2,
+        }
+    )
+    val_size: float = 0.1
+    test_size: float = 0.1
+    seed: int = 42
 
 @dataclass
 class ConversationExample:
@@ -32,20 +40,21 @@ class ConversationDataset(Dataset):
         example = self.examples[idx]
         return {"text": example.text, "label": example.label}
 
-def _prepare_examples(df: pd.DataFrame) -> List[ConversationExample]:
-    examples = []
+def _prepare_examples(df: pd.DataFrame, data_cfg: DataConfig) -> List[ConversationExample]:
+    examples: List[ConversationExample] = []
     for row in df.itertuples(index=False):
-        text = getattr(row, DATA_COLUMN)
-        label_raw = getattr(row, LABEL_COLUMN)
+        text = getattr(row, data_cfg.text_column)
+        label_raw = getattr(row, data_cfg.label_column)
         if not isinstance(label_raw, str):
             label_raw = str(label_raw)
         label_key = label_raw.strip()
-        examples.append(ConversationExample(text=text, label=LABEL_MAP[label_key]))
+        examples.append(ConversationExample(text=text, label=data_cfg.label_map[label_key]))
     return examples
 
-def load_splits(csv_path: str, val_size: float = 0.1, test_size: float = 0.1, seed: int = 42):
+def load_splits(csv_path: str, data_cfg: DataConfig) -> Tuple[ConversationDataset, ConversationDataset, ConversationDataset, torch.Tensor]:
+    # Keep column names and label mapping configurable to support new datasets.
     df = pd.read_csv(csv_path)
-    examples = _prepare_examples(df)
+    examples = _prepare_examples(df, data_cfg)
 
     labels = [ex.label for ex in examples]
     texts = [ex.text for ex in examples]
@@ -53,17 +62,17 @@ def load_splits(csv_path: str, val_size: float = 0.1, test_size: float = 0.1, se
     train_texts, temp_texts, train_labels, temp_labels = train_test_split(
         texts,
         labels,
-        test_size=val_size + test_size,
-        random_state=seed,
+        test_size=data_cfg.val_size + data_cfg.test_size,
+        random_state=data_cfg.seed,
         stratify=labels,
     )
 
-    relative_val = val_size / (val_size + test_size)
+    relative_val = data_cfg.val_size / (data_cfg.val_size + data_cfg.test_size)
     val_texts, test_texts, val_labels, test_labels = train_test_split(
         temp_texts,
         temp_labels,
         test_size=1 - relative_val,
-        random_state=seed,
+        random_state=data_cfg.seed,
         stratify=temp_labels,
     )
 
@@ -77,7 +86,7 @@ def load_splits(csv_path: str, val_size: float = 0.1, test_size: float = 0.1, se
         [ConversationExample(text=t, label=l) for t, l in zip(test_texts, test_labels)]
     )
 
-    classes = torch.tensor(sorted(set(LABEL_MAP.values())), dtype=torch.long)
+    classes = torch.tensor(sorted(set(data_cfg.label_map.values())), dtype=torch.long)
     class_weights_np = compute_class_weight(
         class_weight="balanced", classes=classes.numpy(), y=train_labels
     )

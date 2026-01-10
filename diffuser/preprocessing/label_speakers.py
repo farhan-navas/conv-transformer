@@ -199,7 +199,7 @@ def predict_role_batch(texts, role_model):
     labels = [LABEL_MAP[p] for p in preds]
     return preds, labels, confs
 
-def main():
+def label_speakers():
     dataset = pd.read_csv(INPUT_CSV)
 
     df_stacked = build_stacked(dataset)
@@ -215,4 +215,4 @@ def main():
     df_human.to_csv(OUTPUT_CSV, index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
 
 if __name__ == "__main__":
-    main()
+    label_speakers()

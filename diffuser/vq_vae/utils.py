@@ -19,7 +19,7 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12):
     norms = np.linalg.norm(x, axis=1, keepdims=True)
     return x / (norms + eps)
 
-def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
+def ensure_embeddings_npy(npy_path: str, jsonl_path: str = EMBEDDINGS_JSONL, l2_norm: bool = True) -> np.ndarray:
     if os.path.exists(npy_path):
         arr = np.load(npy_path)
         return arr.astype(np.float32, copy=False)
@@ -32,7 +32,7 @@ def ensure_embeddings_npy(npy_path: str, l2_norm: bool = True) -> np.ndarray:
     empty_turns = 0
     turns_total = 0
 
-    for obj in read_jsonl(EMBEDDINGS_JSONL):
+    for obj in read_jsonl(jsonl_path):
         rows_total += 1
         row_vectors_before = len(vectors)
 

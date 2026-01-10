@@ -1,22 +1,25 @@
-import os
 import json
-import numpy as np
+from dataclasses import dataclass
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import EmbeddingDataset
-from model import VQVAE
+from .dataset import EmbeddingDataset
+from .model import VQVAE
 
-# change this later, put in data/
-JSONL_IN = "sentence_embeddings.jsonl"
-NPY_PATH = "embeddings.npy"
-CKPT_PATH = "checkpoints/vqvae.pt"
-JSONL_OUT = "sentence_cluster_ids.jsonl"
 
-BATCH_SIZE = 512
+@dataclass
+class ExportCodesConfig:
+    jsonl_in: str = "sentence_embeddings.jsonl"
+    npy_path: str = "embeddings.npy"
+    checkpoint_path: str = "checkpoints/vqvae.pt"
+    jsonl_out: str = "sentence_cluster_ids.jsonl"
+    batch_size: int = 512
 
-def main():
-    ckpt = torch.load(CKPT_PATH, map_location="cpu")
+
+def export_codes(config: ExportCodesConfig) -> None:
+    ckpt = torch.load(config.checkpoint_path, map_location="cpu")
     dim_in = ckpt["dim_in"]
     latent_dim = ckpt["latent_dim"]
     num_codes = ckpt["num_codes"]
@@ -28,8 +31,8 @@ def main():
     model.load_state_dict(ckpt["model"])
     model.eval()
 
-    ds = EmbeddingDataset(NPY_PATH)
-    dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False)
+    ds = EmbeddingDataset(config.npy_path)
+    dl = DataLoader(ds, batch_size=config.batch_size, shuffle=False)
 
     all_ids = []
     with torch.no_grad():
@@ -39,10 +42,11 @@ def main():
             ids = out["indices"].detach().cpu().numpy().tolist()
             all_ids.extend(ids)
 
-    # Write out JSONL with cluster_ids aggregated per speaker per original row
     idx = 0
     written = 0
-    with open(JSONL_IN, "r", encoding="utf-8") as fin, open(JSONL_OUT, "w", encoding="utf-8") as fout:
+    out_path = Path(config.jsonl_out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config.jsonl_in, "r", encoding="utf-8") as fin, open(out_path, "w", encoding="utf-8") as fout:
         for line in fin:
             line = line.strip()
             if not line:
@@ -60,7 +64,6 @@ def main():
                 count = len(emb_list)
                 if count == 0:
                     continue
-                # slice cluster ids for this turn
                 turn_ids = all_ids[idx: idx + count]
                 idx += count
                 speakers.setdefault(speaker, []).extend(int(cid) for cid in turn_ids)
@@ -78,8 +81,6 @@ def main():
     if idx != len(all_ids):
         print(f"[warn] consumed {idx} cluster ids, but {len(all_ids)} were computed; some ids may be unused")
 
-    print(f"[done] wrote {written} rows to {JSONL_OUT}")
+    print(f"[done] wrote {written} rows to {out_path}")
     print(f"[codes] num_codes={num_codes}, used_unique={len(set(all_ids))}")
 
-if __name__ == "__main__":
-    main()
