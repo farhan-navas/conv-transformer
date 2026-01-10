@@ -7,43 +7,52 @@ Unified entrypoint for classifier fine-tuning, attention dumps, speaker labellin
 - Edit `config.yaml`.
 - `core.run_version` sets the output folder under `runs/` (e.g., `v0.1`, `v0.2`).
 - `core.task` chooses which job to run: `classifier_train`, `attention`, `create_embeddings`, `label_speakers`, `vqvae_train`, `export_codes`.
-- ALL settings + data live in their own sections.
+- All task settings live in their own sections.
 
 ### Run
 
-- Classifier train (uses `core.task` by default):
+- Classifier train:
   ```
-  uv run main.py --config config.yaml --task classifier_train --run-version v0.1
+  uv run main.py --task classifier_train
   ```
 - Attention dump (reads saved classifier model):
   ```
-  uv run main.py --config config.yaml --task attention --run-version v0.1
+  uv run main.py --task attention
+  ```
+- Label speakers:
+  ```
+  uv run main.py --task label_speakers
+  ```
+- Create embeddings (fuzzy embedding pipeline):
+  ```
+  uv run main.py --task create_embedding
   ```
 - VQ-VAE train:
   ```
-  uv run main.py --config config.yaml --task vqvae_train --run-version v0.1
+  uv run main.py --task vqvae_train
   ```
 - Export code assignments:
   ```
-  uv run main.py --config config.yaml --task export_codes --run-version v0.1
+  uv run main.py --task export_codes
   ```
 
 ### Outputs
 
 - Everything is written under `runs/<run_version>/`:
-  - `classifier/` holds the fine-tuned model and `metrics.jsonl`.
-  - `attention/` holds attention dumps.
-  - `vqvae/` holds checkpoints, embeddings, and exported cluster IDs.
+  - `classifier/` holds the fine-tuned model and `metrics.jsonl`
+  - `attention/` holds attention dumps
+  - `preprocessing/` holds conversation JSONL, sentence embeddings JSONL, and metrics
+  - `vqvae/` holds checkpoints, embeddings, and exported cluster IDs
 
 ### Module map
 
-- `classifier/data.py`: dataset config, splits, label map.
-- `classifier/train.py`: classifier training.
-- `classifier/attention.py`: sample attention dump from a saved classifier.
+- `classifier/data.py`: dataset config, splits, label map
+- `classifier/train.py`: classifier training
+- `classifier/attention.py`: sample attention dump from a saved classifier
 - `diffuser/preprocessing/label_speakers.py`: label speakers in data with confidence score
 - `diffuser/preprocessing/fuzzy_embedding.py`: create sentence embeddings from dataset
 - `diffuser/vq_vae/train.py`: VQ-VAE training on dataset
-- `diffuser/vq_vae/export_codes.py`: export code assignments per conversation turn.
+- `diffuser/vq_vae/export_codes.py`: export code assignments per conversation turn
 
 ## Conversation Dataset Pre-processing
 
@@ -61,3 +70,5 @@ Bare-bones scaffold to fine-tune `roberta-base` for 3-class dialogue outcome cla
 
 Printed metrics can be found in `attention_scores_sorted.jsonl`.
 Conversation dataset metrics can be found inside `overall_metrics.json`, ...: TODO: describe data shape as well
+
+TODO: Also yet to add in depth details for the other sections inside diffuser

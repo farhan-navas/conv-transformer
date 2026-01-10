@@ -1,37 +1,49 @@
 import json
+from dataclasses import dataclass, field
 from math import sqrt
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, List
 
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-from data_prep import label_conversation, merge_consecutive, format_dialogue_to_turns, split_utterances
 
-INPUT_CSV = "data-human.csv"
-CONVERSATIONS_JSONL = "conversation_turns.jsonl"
-EMBEDDINGS_JSONL = "sentence_embeddings.jsonl"
-METRICS_JSON = "overall_metrics.json"
+from data_prep import format_dialogue_to_turns, label_conversation, merge_consecutive, split_utterances
 
-# TARGET_COLUMNS = ["transcription", "transcription_ch0", "transcription_ch1"]
-MODEL_NAME = "all-MiniLM-L6-v2"
-
-# New stacked input schema (one row per channel)
-STACKED_COLS = [
-    "transcription", "channel_text", "channel", "Disposition", "orig_idx",
-    "role_label", "role_confidence",
-]
+@dataclass
+class FuzzyEmbeddingConfig:
+    input_csv: str = "data-human.csv"
+    conversations_jsonl: str = "conversation_turns.jsonl"
+    embeddings_jsonl: str = "sentence_embeddings.jsonl"
+    metrics_json: str = "overall_metrics.json"
+    model_name: str = "all-MiniLM-L6-v2"
+    stacked_cols: List[str] = field(
+        default_factory=lambda: [
+            "transcription",
+            "channel_text",
+            "channel",
+            "Disposition",
+            "orig_idx",
+            "role_label",
+            "role_confidence",
+        ]
+    )
 
 def write_json(path: str, obj: Dict[str, Any]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
 
+
 def write_jsonl(path: str, rows: List[Dict[str, Any]]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
-def _aggregate_stacked(df: pd.DataFrame) -> List[Dict[str, Any]]:
+
+def _aggregate_stacked(df: pd.DataFrame, stacked_cols: List[str]) -> List[Dict[str, Any]]:
     """Rebuild per-conversation records from the stacked channel rows using role labels/confidence."""
-    missing = [c for c in STACKED_COLS if c not in df.columns]
+    missing = [c for c in stacked_cols if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
@@ -88,12 +100,12 @@ def _map_outcome(disp: str) -> int:
         return 0
     return -1
 
-def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
+def build_row_items(df: pd.DataFrame, embedder: SentenceTransformer, cfg: FuzzyEmbeddingConfig) -> List[Dict[str, Any]]:
     print("[build_row_items] start")
     items = []
     # If dataset is stacked (channel per row), rebuild convs first
     if "channel" in df.columns and "channel_text" in df.columns:
-        rows = _aggregate_stacked(df)
+        rows = _aggregate_stacked(df, cfg.stacked_cols)
     else:
         rows = [{
             "orig_idx": idx,
@@ -131,8 +143,8 @@ def build_row_items(df, embedder: SentenceTransformer) -> List[Dict[str, Any]]:
         if len(items) % 100 == 0:
             print(f"[build_row_items] processed row {len(items)}")
 
-    write_jsonl(CONVERSATIONS_JSONL, items)
-    print(f"[build_row_items] wrote {len(items)} rows to {CONVERSATIONS_JSONL}")
+    write_jsonl(cfg.conversations_jsonl, items)
+    print(f"[build_row_items] wrote {len(items)} rows to {cfg.conversations_jsonl}")
     return items
 
 def build_sentence_embeddings(row_items: List[Dict[str, Any]], embedder: SentenceTransformer):
@@ -183,7 +195,7 @@ def _stats(vals: List[int]) -> Dict[str, Any]:
         "std": sqrt(variance),
     }
 
-def build_overall_metrics(row_items: List[Dict[str, Any]]):
+def build_overall_metrics(row_items: List[Dict[str, Any]], cfg: FuzzyEmbeddingConfig):
     print("[build_overall_metrics] start")
     cats = {
         1: {"label": "positive", "nts": [], "wcs": []},
@@ -206,24 +218,26 @@ def build_overall_metrics(row_items: List[Dict[str, Any]]):
             "word_count": _stats(cat["wcs"]),
         }
 
-    write_json(METRICS_JSON, metrics)
-    print(f"[build_overall_metrics] wrote metrics to {METRICS_JSON}")
+    write_json(cfg.metrics_json, metrics)
+    print(f"[build_overall_metrics] wrote metrics to {cfg.metrics_json}")
 
-def create_embeddings():
-    df = pd.read_csv(INPUT_CSV)
-    print(f"[main] loaded {len(df)} rows from {INPUT_CSV}")
+def create_embeddings(cfg: FuzzyEmbeddingConfig | None = None):
+    cfg = cfg or FuzzyEmbeddingConfig()
 
-    embedder = SentenceTransformer(MODEL_NAME)
-    print(f"[main] loaded model {MODEL_NAME}")
-    row_items = build_row_items(df, embedder)
+    df = pd.read_csv(cfg.input_csv)
+    print(f"[main] loaded {len(df)} rows from {cfg.input_csv}")
+
+    embedder = SentenceTransformer(cfg.model_name)
+    print(f"[main] loaded model {cfg.model_name}")
+    row_items = build_row_items(df, embedder, cfg)
 
     sentence_embeddings = build_sentence_embeddings(row_items, embedder)
-    write_jsonl(EMBEDDINGS_JSONL, sentence_embeddings)
-    build_overall_metrics(row_items)
+    write_jsonl(cfg.embeddings_jsonl, sentence_embeddings)
+    build_overall_metrics(row_items, cfg)
 
-    print(f"Done. Wrote {len(sentence_embeddings)} rows to {EMBEDDINGS_JSONL}")
-    print(f"Wrote metrics to {METRICS_JSON}")
-    print(f"Model: {MODEL_NAME}")
+    print(f"Done. Wrote {len(sentence_embeddings)} rows to {cfg.embeddings_jsonl}")
+    print(f"Wrote metrics to {cfg.metrics_json}")
+    print(f"Model: {cfg.model_name}")
 
 if __name__ == "__main__":
     create_embeddings()

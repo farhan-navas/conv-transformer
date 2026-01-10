@@ -8,8 +8,8 @@ import yaml
 from classifier.train import TrainConfig, train_model
 from classifier.data import DataConfig
 from classifier.attention import AttentionConfig, run_attention_dump
-from diffuser.preprocessing.label_speakers import label_speakers
-from diffuser.preprocessing.fuzzy_embedding import create_embeddings
+from diffuser.preprocessing.label_speakers import LabelSpeakersConfig, label_speakers
+from diffuser.preprocessing.fuzzy_embedding import FuzzyEmbeddingConfig, create_embeddings
 from diffuser.vq_vae.train import VQVAEConfig, train_vqvae
 from diffuser.vq_vae.export_codes import ExportCodesConfig, export_codes
 
@@ -93,11 +93,36 @@ def _build_export_cfg(cfg: Dict[str, Any], run_dir: Path, ckpt_path: Path, npy_p
     )
 
 
+def _build_fuzzy_cfg(cfg: Dict[str, Any], run_dir: Path) -> FuzzyEmbeddingConfig:
+    pre_dir = run_dir / "preprocessing"
+    pre_dir.mkdir(parents=True, exist_ok=True)
+    default_cols = FuzzyEmbeddingConfig().stacked_cols
+    return FuzzyEmbeddingConfig(
+        input_csv=str(cfg.get("input_csv", "data-human.csv")),
+        conversations_jsonl=str(pre_dir / cfg.get("conversations_jsonl", "conversation_turns.jsonl")),
+        embeddings_jsonl=str(pre_dir / cfg.get("embeddings_jsonl", "sentence_embeddings.jsonl")),
+        metrics_json=str(pre_dir / cfg.get("metrics_json", "overall_metrics.json")),
+        model_name=str(cfg.get("model_name", "all-MiniLM-L6-v2")),
+        stacked_cols=cfg.get("stacked_cols", default_cols),
+    )
+
+
+def _build_label_cfg(cfg: Dict[str, Any], run_dir: Path) -> LabelSpeakersConfig:
+    pre_dir = run_dir / "preprocessing"
+    pre_dir.mkdir(parents=True, exist_ok=True)
+    return LabelSpeakersConfig(
+        input_csv=str(cfg.get("input_csv", "data.csv")),
+        output_csv=str(pre_dir / cfg.get("output_csv", "data-human.csv")),
+        model_path=str(cfg.get("model_path", "diffuser/preprocessing/CLEAN_agent_donor.joblib")),
+        text_col=str(cfg.get("text_col", "channel_text")),
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run conv-transformer tasks from YAML config")
     parser.add_argument(
         "--task",
-        choices=["classifier_train", "attention", "vqvae_train", "export_codes"],
+        choices=["classifier_train", "attention", "label_speakers", "vqvae_train", "export_codes", "create_embedding"],
         default="vqvae_train",
         help="Task to run (defaults to vqvae_train)",
     )
@@ -131,6 +156,12 @@ def main() -> None:
     export_cfg_raw = cfg.get("export_codes", {})
     export_cfg = _build_export_cfg(export_cfg_raw, run_dir, Path(vqvae_cfg.checkpoint_path), Path(vqvae_cfg.npy_path))
 
+    fuzzy_cfg_raw = cfg.get("create_embedding", {})
+    fuzzy_cfg = _build_fuzzy_cfg(fuzzy_cfg_raw, run_dir)
+
+    label_cfg_raw = cfg.get("label_speakers", {})
+    label_cfg = _build_label_cfg(label_cfg_raw, run_dir)
+
     if task == "classifier_train":
         metrics = train_model(train_cfg)
         print(json.dumps(metrics, indent=2))
@@ -140,6 +171,10 @@ def main() -> None:
         train_vqvae(vqvae_cfg)
     elif task == "export_codes":
         export_codes(export_cfg)
+    elif task == "create_embedding":
+        create_embeddings(fuzzy_cfg)
+    elif task == "label_speakers":
+        label_speakers(label_cfg)
     else:
         raise ValueError(f"Unknown task: {task}")
 

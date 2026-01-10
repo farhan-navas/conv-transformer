@@ -56,3 +56,24 @@ export_codes:
   jsonl_out: sentence_cluster_ids.jsonl
   batch_size: 512
   # checkpoint_path: optional override; defaults to vqvae checkpoint path
+
+create_embedding:
+  input_csv: data-human.csv
+  conversations_jsonl: conversation_turns.jsonl
+  embeddings_jsonl: sentence_embeddings.jsonl
+  metrics_json: overall_metrics.json
+  model_name: all-MiniLM-L6-v2
+  stacked_cols:
+    - transcription
+    - channel_text
+    - channel
+    - Disposition
+    - orig_idx
+    - role_label
+    - role_confidence
+
+label_speakers:
+  input_csv: data.csv
+  output_csv: data-human.csv
+  model_path: diffuser/preprocessing/CLEAN_agent_donor.joblib
+  text_col: channel_text

@@ -1,16 +1,24 @@
 import csv
 import os, re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import List
+
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
 from multiprocessing.dummy import Pool as ThreadPool
 from tqdm import tqdm
 
-INPUT_CSV = "data.csv"
-OUTPUT_CSV = "data-human.csv"
-
 LABEL_MAP = {0: "Agent", 1: "Donor"}
+
+
+@dataclass
+class LabelSpeakersConfig:
+    input_csv: str = "data.csv"
+    output_csv: str = "data-human.csv"
+    model_path: str = "diffuser/preprocessing/CLEAN_agent_donor.joblib"
+    text_col: str = "channel_text"
 
 RE_SPACES        = re.compile(r"\s+")
 RE_URL           = re.compile(r"https?://\S+|www\.\S+")
@@ -199,20 +207,24 @@ def predict_role_batch(texts, role_model):
     labels = [LABEL_MAP[p] for p in preds]
     return preds, labels, confs
 
-def label_speakers():
-    dataset = pd.read_csv(INPUT_CSV)
+def label_speakers(cfg: LabelSpeakersConfig | None = None):
+    cfg = cfg or LabelSpeakersConfig()
+
+    dataset = pd.read_csv(cfg.input_csv)
 
     df_stacked = build_stacked(dataset)
-    df_stacked_clean = prepare_text(df_stacked, text_col="channel_text")
+    df_stacked_clean = prepare_text(df_stacked, text_col=cfg.text_col)
 
-    role_model = joblib.load("diffuser/preprocessing/CLEAN_agent_donor.joblib")
+    role_model = joblib.load(cfg.model_path)
     df_human = df_stacked_clean.copy()
     preds, labels, confs = predict_role_batch(df_human["text_clean"].tolist(), role_model)
 
     df_human["role_label"] = labels
     df_human["role_confidence"] = np.round(confs, 3)
 
-    df_human.to_csv(OUTPUT_CSV, index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
+    out_path = Path(cfg.output_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    df_human.to_csv(out_path, index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
 
 if __name__ == "__main__":
     label_speakers()
