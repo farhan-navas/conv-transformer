@@ -11,4 +11,5 @@ This directory contains a speech-cleaning and identification pipeline. The prepr
 
 ## Quick start
 
-1. Run label_speakers.py before running fuzzy_embeddings.py, this does not work now though, TODO: need to fix
+1. Run label_speakers.py (which produces data-human.csv), before running fuzzy_embeddings.py, to get the final output
+2. Outputs are `sentence_embeddings.jsonl` (primary file that is used for the next step of model pipeline) and `conversation_turns.jsonl` (secondary file for us to check on data in natural language).
