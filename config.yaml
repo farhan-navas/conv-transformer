@@ -3,11 +3,18 @@ core:
   output_root: runs
 
 classifier:
-  model_name: roberta-base
-  batch_size: 8
-  max_length: 512
-  epochs: 3
-  learning_rate: 0.00002
+  codes_jsonl: vqvae/sentence_cluster_ids.jsonl
+  vocab_size: 128
+  pad_id: 128
+  cls_id: 129
+  d_model: 256
+  n_heads: 4
+  n_layers: 2
+  dropout: 0.1
+  batch_size: 32
+  max_length: 256
+  epochs: 5
+  learning_rate: 0.0001
   weight_decay: 0.01
   warmup_ratio: 0.1
   seed: 42

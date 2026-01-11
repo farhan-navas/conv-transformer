@@ -8,18 +8,31 @@ from sklearn.metrics import accuracy_score, classification_report, f1_score
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 
-from .data import ConversationDataset, DataConfig, build_collate_fn, load_splits, make_dataloaders
+from .data import (
+    CodeDataset,
+    DataConfig,
+    build_code_collate_fn,
+    load_code_splits,
+    make_code_dataloaders,
+)
+from .code_model import CodeClassifier, CodeModelConfig
 
 @dataclass
 class TrainConfig:
     data: DataConfig = field(default_factory=DataConfig)
-    model_name: str = "roberta-base"
-    batch_size: int = 8
-    max_length: int = 512
-    epochs: int = 3
-    learning_rate: float = 2e-5
+    codes_jsonl: str = "sentence_cluster_ids.jsonl"
+    vocab_size: int = 128
+    pad_id: int = 128
+    cls_id: int = 129
+    d_model: int = 256
+    n_heads: int = 4
+    n_layers: int = 2
+    dropout: float = 0.1
+    batch_size: int = 32
+    max_length: int = 256
+    epochs: int = 5
+    learning_rate: float = 1e-4
     seed: int = 42
     weight_decay: float = 0.01
     warmup_ratio: float = 0.1
@@ -42,8 +55,7 @@ def _evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.dev
     with torch.no_grad():
         for batch in data_loader:
             batch = _to_device(batch, device)
-            outputs = model(**batch)
-            logits = outputs.logits
+            logits = model(batch["input_ids"], batch["attention_mask"])
             preds = torch.argmax(logits, dim=-1)
             all_labels.extend(batch["labels"].cpu().numpy().tolist())
             all_preds.extend(preds.cpu().numpy().tolist())
@@ -63,27 +75,34 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
         Path(config.log_path).parent.mkdir(parents=True, exist_ok=True)
         open(config.log_path, "w", encoding="utf-8").close()
 
-    tokenizer = AutoTokenizer.from_pretrained(config.model_name)
-    train_ds, val_ds, test_ds, class_weights = load_splits(
-        csv_path=config.data.csv_path,
+    train_ds, val_ds, test_ds, class_weights = load_code_splits(
+        codes_jsonl=config.codes_jsonl,
         data_cfg=config.data,
     )
 
-    train_loader, val_loader, test_loader = make_dataloaders(
+    train_loader, val_loader, test_loader = make_code_dataloaders(
         train_ds,
         val_ds,
         test_ds,
-        tokenizer=tokenizer,
         batch_size=config.batch_size,
-        max_length=config.max_length
+        max_length=config.max_length,
+        pad_id=config.pad_id,
+        cls_id=config.cls_id,
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = AutoModelForSequenceClassification.from_pretrained(
-        config.model_name,
+    model_cfg = CodeModelConfig(
+        vocab_size=config.vocab_size,
+        pad_id=config.pad_id,
+        cls_id=config.cls_id,
+        d_model=config.d_model,
+        n_heads=config.n_heads,
+        n_layers=config.n_layers,
+        dropout=config.dropout,
+        max_length=config.max_length,
         num_labels=len(config.data.label_map),
-        output_attentions=True,
     )
+    model = CodeClassifier(model_cfg)
     model.to(device)
 
     class_weights = class_weights.to(device)
@@ -107,8 +126,7 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
             batch = _to_device(batch, device)
             labels = batch.pop("labels")
 
-            outputs = model(**batch)
-            logits = outputs.logits
+            logits = model(batch["input_ids"], batch["attention_mask"])
             loss = criterion(logits, labels)
             loss.backward()
 
@@ -145,9 +163,13 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
 
     test_acc, test_macro_f1, test_per_class = _evaluate(model, test_loader, device)
 
-    # Save the fine-tuned model and tokenizer for reuse.
-    model.save_pretrained(out_dir)
-    tokenizer.save_pretrained(out_dir)
+    torch.save(
+        {
+            "model_state": model.state_dict(),
+            "model_cfg": model_cfg.__dict__,
+        },
+        out_dir / "model.pt",
+    )
 
     _log_metrics(
         config.log_path,
