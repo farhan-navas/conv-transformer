@@ -1,22 +1,17 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict
 
 import torch
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from transformers import get_linear_schedule_with_warmup
 
-from .data import (
-    CodeDataset,
-    DataConfig,
-    build_code_collate_fn,
-    load_code_splits,
-    make_code_dataloaders,
-)
-from .code_model import CodeClassifier, CodeModelConfig
+from data import DataConfig, load_code_splits, make_code_dataloaders
+from code_model import CodeClassifier, CodeModelConfig
 
 @dataclass
 class TrainConfig:
@@ -186,30 +181,7 @@ def train_model(config: TrainConfig) -> Dict[str, float]:
     metrics = {
         "val_macro_f1": best_val_f1,
         "test_accuracy": test_acc,
-        "test_macro_f1": test_macro_f1
+        "test_macro_f1": test_macro_f1,
     }
     metrics.update({f"test_f1_class_{k}": v for k, v in test_per_class.items()})
     return metrics
-
-def build_collate_and_loader(
-    csv_path: str,
-    model_name: str = "roberta-base",
-    batch_size: int = 8,
-    max_length: int = 512,
-    num_workers: int = 2,
-    data_cfg: DataConfig | None = None,
-) -> Tuple[ConversationDataset, ConversationDataset, ConversationDataset, DataLoader, DataLoader, DataLoader]:
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    data_cfg = data_cfg or DataConfig(csv_path=csv_path)
-    train_ds, val_ds, test_ds, _ = load_splits(csv_path=data_cfg.csv_path, data_cfg=data_cfg)
-    collate_fn = build_collate_fn(tokenizer=tokenizer, max_length=max_length)
-    train_loader = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn
-    )
-    test_loader = DataLoader(
-        test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn
-    )
-    return train_ds, val_ds, test_ds, train_loader, val_loader, test_loader
