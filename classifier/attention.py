@@ -5,21 +5,18 @@ from typing import Dict, List
 import torch
 from torch.nn.functional import softmax
 
-from .code_model import CodeClassifier, CodeModelConfig
-from .data import DataConfig, _load_code_examples
-
+from classifier.code_model import CodeClassifier, CodeModelConfig
+from classifier.data import DataConfig, _load_code_examples
 
 def _sample_indices(n: int, sample_size: int, seed: int) -> List[int]:
     rng = torch.Generator().manual_seed(seed)
     perm = torch.randperm(n, generator=rng)
     return perm[: min(sample_size, n)].tolist()
 
-
 def _normalize(scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     masked = scores * mask
     total = masked.sum() + 1e-12
     return masked / total
-
 
 @dataclass
 class AttentionConfig:
@@ -31,7 +28,6 @@ class AttentionConfig:
     max_length: int = 512
     layer: int = -1
     seed: int = 42
-
 
 def run_attention_dump(config: AttentionConfig) -> None:
     out_path = Path(config.output_path)
@@ -79,3 +75,4 @@ def run_attention_dump(config: AttentionConfig) -> None:
                 f"Tokens+attn: {token_scores}\n"
                 f"{'=' * 60}\n\n"
             )
+            

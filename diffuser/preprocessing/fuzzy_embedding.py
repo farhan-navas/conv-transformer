@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 
-from data_prep import format_dialogue_to_turns, label_conversation, merge_consecutive, split_utterances
+from diffuser.preprocessing.data_prep import format_dialogue_to_turns, label_conversation, merge_consecutive, split_utterances
 
 @dataclass
 class FuzzyEmbeddingConfig:

@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import get_linear_schedule_with_warmup
 
-from data import DataConfig, load_code_splits, make_code_dataloaders
-from code_model import CodeClassifier, CodeModelConfig
+from classifier.data import DataConfig, load_code_splits, make_code_dataloaders
+from classifier.code_model import CodeClassifier, CodeModelConfig
 
 @dataclass
 class TrainConfig:

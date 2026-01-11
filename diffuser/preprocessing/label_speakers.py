@@ -12,7 +12,6 @@ from tqdm import tqdm
 
 LABEL_MAP = {0: "Agent", 1: "Donor"}
 
-
 @dataclass
 class LabelSpeakersConfig:
     input_csv: str = "data.csv"

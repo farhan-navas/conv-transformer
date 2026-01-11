@@ -3,8 +3,6 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 
 @dataclass
 class CodeModelConfig:
@@ -17,7 +15,6 @@ class CodeModelConfig:
     dropout: float = 0.1
     max_length: int = 512
     num_labels: int = 3
-
 
 class CodeClassifier(nn.Module):
     def __init__(self, cfg: CodeModelConfig):
@@ -72,7 +69,6 @@ class CodeClassifier(nn.Module):
         if return_attentions:
             return logits, attentions
         return logits
-
 
 class AttentionEncoderLayer(nn.Module):
     def __init__(self, d_model: int, nhead: int, dim_feedforward: int, dropout: float):

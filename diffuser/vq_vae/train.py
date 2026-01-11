@@ -4,11 +4,10 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from .utils import set_seed, ensure_embeddings_npy, codebook_perplexity
-from .dataset import EmbeddingDataset
-from .model import VQVAE
-from .losses import vqvae_loss
-
+from diffuser.vq_vae.utils import set_seed, ensure_embeddings_npy, codebook_perplexity
+from diffuser.vq_vae.dataset import EmbeddingDataset
+from diffuser.vq_vae.model import VQVAE
+from diffuser.vq_vae.losses import vqvae_loss
 
 @dataclass
 class VQVAEConfig:

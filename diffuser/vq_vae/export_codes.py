@@ -5,9 +5,8 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from .dataset import EmbeddingDataset
-from .model import VQVAE
-
+from diffuser.vq_vae.dataset import EmbeddingDataset
+from diffuser.vq_vae.model import VQVAE
 
 @dataclass
 class ExportCodesConfig:
@@ -16,7 +15,6 @@ class ExportCodesConfig:
     checkpoint_path: str = "checkpoints/vqvae.pt"
     jsonl_out: str = "sentence_cluster_ids.jsonl"
     batch_size: int = 512
-
 
 def export_codes(config: ExportCodesConfig) -> None:
     ckpt = torch.load(config.checkpoint_path, map_location="cpu")
@@ -83,4 +81,3 @@ def export_codes(config: ExportCodesConfig) -> None:
 
     print(f"[done] wrote {written} rows to {out_path}")
     print(f"[codes] num_codes={num_codes}, used_unique={len(set(all_ids))}")
-
