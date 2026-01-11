@@ -22,7 +22,7 @@ def _normalize(scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 class AttentionConfig:
     data: DataConfig = field(default_factory=DataConfig)
     model_dir: str = "model_out"
-    codes_jsonl: str = "sentence_cluster_ids.jsonl"
+    codes_jsonl: str = "vqvae/sentence_cluster_ids.jsonl"
     output_path: str = "attention_scores.txt"
     sample_size: int = 20
     max_length: int = 512
@@ -75,4 +75,3 @@ def run_attention_dump(config: AttentionConfig) -> None:
                 f"Tokens+attn: {token_scores}\n"
                 f"{'=' * 60}\n\n"
             )
-            

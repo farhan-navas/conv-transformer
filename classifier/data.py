@@ -46,11 +46,8 @@ def _load_labels(data_cfg: DataConfig) -> Dict[int, int]:
     for idx, row in df.iterrows():
         label_raw = row.get(data_cfg.label_column, "")
         label_key = str(label_raw).strip()
-
-        print(f"the index here is {idx}")
-        labels[idx] = data_cfg.label_map[label_key]
+        labels[idx] = data_cfg.label_map[label_key] # pyright: ignore[reportArgumentType]
     return labels
-
 
 def _load_code_examples(codes_jsonl: str, data_cfg: DataConfig) -> List[CodeExample]:
     labels = _load_labels(data_cfg)
@@ -69,7 +66,6 @@ def _load_code_examples(codes_jsonl: str, data_cfg: DataConfig) -> List[CodeExam
                 seq.extend(int(cid) for cid in speaker.get("cluster_ids", []))
             examples.append(CodeExample(codes=seq, label=labels[row_idx]))
     return examples
-
 
 def load_code_splits(codes_jsonl: str, data_cfg: DataConfig) -> Tuple[CodeDataset, CodeDataset, CodeDataset, torch.Tensor]:
     examples = _load_code_examples(codes_jsonl, data_cfg)
@@ -106,24 +102,20 @@ def load_code_splits(codes_jsonl: str, data_cfg: DataConfig) -> Tuple[CodeDatase
 
     return train_ds, val_ds, test_ds, class_weights
 
-
 def build_code_collate_fn(max_length: int, pad_id: int, cls_id: int | None = None):
 
     def collate(batch: Iterable[Dict[str, torch.Tensor | List[int] | int]]) -> Dict[str, torch.Tensor]:
         items = list(batch)
-
-        je = items[0]["labels"]
-        print(f"[collate] type of item[label] is {type(je)}")
-        labels = torch.tensor([int(item["label"]) for item in items], dtype=torch.long)
+        labels = torch.tensor([int(item["label"]) for item in items], dtype=torch.long) # pyright: ignore[reportArgumentType]
         seqs: List[List[int]] = []
 
         for item in items:
-            codes = list(item.get("codes", []))
+            codes = list(item.get("codes", [])) # pyright: ignore[reportArgumentType]
             if cls_id is not None:
                 codes = [cls_id] + codes
             if len(codes) > max_length:
                 codes = codes[-max_length:]
-            seqs.append(codes)
+            seqs.append(codes) # pyright: ignore[reportArgumentType]
 
         padded: List[List[int]] = []
         masks: List[List[int]] = []
@@ -139,7 +131,6 @@ def build_code_collate_fn(max_length: int, pad_id: int, cls_id: int | None = Non
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
 
     return collate
-
 
 def make_code_dataloaders(
     train_ds: CodeDataset,
