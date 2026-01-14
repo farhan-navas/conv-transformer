@@ -19,10 +19,8 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
         data = yaml.safe_load(f) or {}
     return data
 
-
 def _build_data_cfg(cfg: Dict[str, Any]) -> DataConfig:
     return DataConfig(**cfg)
-
 
 def _build_train_cfg(cfg: Dict[str, Any], data_cfg: DataConfig, run_dir: Path) -> TrainConfig:
     classifier_dir = run_dir / "classifier"
@@ -50,20 +48,24 @@ def _build_train_cfg(cfg: Dict[str, Any], data_cfg: DataConfig, run_dir: Path) -
         output_dir=str(model_dir),
     )
 
-
 def _build_attention_cfg(cfg: Dict[str, Any], data_cfg: DataConfig, run_dir: Path, model_dir: Path) -> AttentionConfig:
     attention_dir = run_dir / "attention"
+    attention_dir.mkdir(parents=True, exist_ok=True)
+
+    codes_jsonl = run_dir / cfg.get("codes_jsonl", "vqvae/sentence_cluster_ids.jsonl")
+    model_dir_resolved = cfg.get("model_dir", model_dir)
     output_path = attention_dir / cfg.get("output_filename", "attention_scores.txt")
+
     return AttentionConfig(
         data=data_cfg,
-        model_dir=str(cfg.get("model_dir", model_dir)),
+        model_dir=str(model_dir_resolved),
+        codes_jsonl=str(codes_jsonl),
         output_path=str(output_path),
         sample_size=int(cfg.get("sample_size", 20)),
         max_length=int(cfg.get("max_length", 512)),
         layer=int(cfg.get("layer", -1)),
         seed=int(cfg.get("seed", 42)),
     )
-
 
 def _build_vqvae_cfg(cfg: Dict[str, Any], run_dir: Path) -> VQVAEConfig:
     vq_dir = run_dir / "vqvae"
@@ -87,7 +89,6 @@ def _build_vqvae_cfg(cfg: Dict[str, Any], run_dir: Path) -> VQVAEConfig:
         seed=int(cfg.get("seed", 42)),
     )
 
-
 def _build_export_cfg(cfg: Dict[str, Any], run_dir: Path, ckpt_path: Path, npy_path: Path) -> ExportCodesConfig:
     export_dir = run_dir / "vqvae"
     jsonl_out = export_dir / cfg.get("jsonl_out", "sentence_cluster_ids.jsonl")
@@ -98,7 +99,6 @@ def _build_export_cfg(cfg: Dict[str, Any], run_dir: Path, ckpt_path: Path, npy_p
         jsonl_out=str(jsonl_out),
         batch_size=int(cfg.get("batch_size", 512)),
     )
-
 
 def _build_fuzzy_cfg(cfg: Dict[str, Any], run_dir: Path) -> FuzzyEmbeddingConfig:
     pre_dir = run_dir / "preprocessing"
@@ -113,7 +113,6 @@ def _build_fuzzy_cfg(cfg: Dict[str, Any], run_dir: Path) -> FuzzyEmbeddingConfig
         stacked_cols=cfg.get("stacked_cols", default_cols),
     )
 
-
 def _build_label_cfg(cfg: Dict[str, Any], run_dir: Path) -> LabelSpeakersConfig:
     pre_dir = run_dir / "preprocessing"
     pre_dir.mkdir(parents=True, exist_ok=True)
@@ -123,7 +122,6 @@ def _build_label_cfg(cfg: Dict[str, Any], run_dir: Path) -> LabelSpeakersConfig:
         model_path=str(cfg.get("model_path", "diffuser/preprocessing/CLEAN_agent_donor.joblib")),
         text_col=str(cfg.get("text_col", "channel_text")),
     )
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run conv-transformer tasks from YAML config")
@@ -184,7 +182,6 @@ def main() -> None:
         label_speakers(label_cfg)
     else:
         raise ValueError(f"Unknown task: {task}")
-
 
 if __name__ == "__main__":
     main()
