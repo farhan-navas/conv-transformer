@@ -70,13 +70,17 @@ def _build_attention_cfg(cfg: Dict[str, Any], data_cfg: DataConfig, run_dir: Pat
 
 def _build_vqvae_cfg(cfg: Dict[str, Any], run_dir: Path) -> VQVAEConfig:
     vq_dir = run_dir / "vqvae"
+    pre_dir = run_dir / "preprocessing"
     ckpt_name = cfg.get("checkpoint_name", "vqvae.pt")
     ckpt_path = vq_dir / cfg.get("checkpoint_subdir", "checkpoints") / ckpt_name
     npy_path = vq_dir / cfg.get("npy_path", "embeddings.npy")
+    jsonl_path = pre_dir / cfg.get("jsonl_path", "sentence_embeddings.jsonl")
+    conversations_path = pre_dir / cfg.get("conversations_path", "conversation_text.jsonl")
 
     return VQVAEConfig(
-        jsonl_path=str(cfg.get("jsonl_path", "sentence_embeddings.jsonl")),
+        jsonl_path=str(jsonl_path),
         npy_path=str(npy_path),
+        conversations_path=str(conversations_path),
         checkpoint_path=str(ckpt_path),
         batch_size=int(cfg.get("batch_size", 256)),
         epochs=int(cfg.get("epochs", 10)),
@@ -162,6 +166,9 @@ def main() -> None:
 
     data_cfg = _build_data_cfg(cfg.get("data", {}))
 
+    label_cfg_raw = cfg.get("label_speakers", {})
+    label_cfg = _build_label_cfg(label_cfg_raw, run_dir)
+
     classifier_cfg_raw = cfg.get("classifier", {})
     train_cfg = _build_train_cfg(classifier_cfg_raw, data_cfg, run_dir)
 
@@ -177,9 +184,6 @@ def main() -> None:
 
     fuzzy_cfg_raw = cfg.get("create_embedding", {})
     fuzzy_cfg = _build_fuzzy_cfg(fuzzy_cfg_raw, run_dir)
-
-    label_cfg_raw = cfg.get("label_speakers", {})
-    label_cfg = _build_label_cfg(label_cfg_raw, run_dir)
 
     map_codes_cfg_raw = cfg.get("map_codes", {})
     map_codes_cfg = _build_map_codes_cfg(map_codes_cfg_raw, run_dir)
