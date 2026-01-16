@@ -12,6 +12,7 @@ from diffuser.preprocessing.label_speakers import LabelSpeakersConfig, label_spe
 from diffuser.preprocessing.fuzzy_embedding import FuzzyEmbeddingConfig, create_embeddings
 from diffuser.vq_vae.train import VQVAEConfig, train_vqvae
 from diffuser.vq_vae.export_codes import ExportCodesConfig, export_codes
+from diffuser.map_codes_to_sentences import build_mapping as map_codes_build
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
@@ -123,11 +124,24 @@ def _build_label_cfg(cfg: Dict[str, Any], run_dir: Path) -> LabelSpeakersConfig:
         text_col=str(cfg.get("text_col", "channel_text")),
     )
 
+
+def _build_map_codes_cfg(cfg: Dict[str, Any], run_dir: Path) -> Dict[str, Any]:
+    vq_dir = run_dir / "vqvae"
+    pre_dir = run_dir / "preprocessing"
+    return {
+        "checkpoint_path": Path(cfg.get("checkpoint_path", vq_dir / "checkpoints" / "vqvae.pt")),
+        "sentence_embeddings_npy": Path(cfg.get("sentence_embeddings_npy", vq_dir / "embeddings.npy")),
+        "sentence_text_jsonl": Path(cfg.get("sentence_text_jsonl", pre_dir / "conversation_text.jsonl")),
+        "out_path": Path(cfg.get("out_path", vq_dir / "code_to_sentences.jsonl")),
+        "k": int(cfg.get("k", 5)),
+        "batch_size": int(cfg.get("batch_size", 512)),
+    }
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run conv-transformer tasks from YAML config")
     parser.add_argument(
         "--task",
-        choices=["classifier_train", "attention", "label_speakers", "vqvae_train", "export_codes", "create_embedding"],
+        choices=["classifier_train", "attention", "label_speakers", "vqvae_train", "export_codes", "create_embedding", "map_codes"],
         default="vqvae_train",
         help="Task to run (defaults to vqvae_train)",
     )
@@ -167,6 +181,9 @@ def main() -> None:
     label_cfg_raw = cfg.get("label_speakers", {})
     label_cfg = _build_label_cfg(label_cfg_raw, run_dir)
 
+    map_codes_cfg_raw = cfg.get("map_codes", {})
+    map_codes_cfg = _build_map_codes_cfg(map_codes_cfg_raw, run_dir)
+
     if task == "classifier_train":
         metrics = train_model(train_cfg)
         print(json.dumps(metrics, indent=2))
@@ -180,6 +197,15 @@ def main() -> None:
         create_embeddings(fuzzy_cfg)
     elif task == "label_speakers":
         label_speakers(label_cfg)
+    elif task == "map_codes":
+        map_codes_build(
+            checkpoint_path=map_codes_cfg["checkpoint_path"],
+            sentence_embeddings_npy=map_codes_cfg["sentence_embeddings_npy"],
+            sentence_text_jsonl=map_codes_cfg["sentence_text_jsonl"],
+            out_path=map_codes_cfg["out_path"],
+            k=map_codes_cfg["k"],
+            batch_size=map_codes_cfg["batch_size"],
+        )
     else:
         raise ValueError(f"Unknown task: {task}")
 

@@ -8,6 +8,7 @@ import torch
 
 EMBEDDINGS_JSONL = "sentence_embeddings.jsonl"
 NPY_PATH = "embeddings.npy"
+CONVERSATIONS_JSONL = "conversation_text.jsonl"
 
 def set_seed(seed: int = 42):
     random.seed(seed)
@@ -43,26 +44,13 @@ def ensure_embeddings_npy(npy_path: str, jsonl_path: str = EMBEDDINGS_JSONL, l2_
                 turn_vectors_before = len(vectors)
                 for emb in turn.get("embeddings", []):
                     vec = np.asarray(emb, dtype=np.float32)
-                    if vec.ndim != 1:
-                        raise ValueError(f"Expected 1D embedding vector, got shape {vec.shape}")
                     if dim == -1:
                         dim = vec.shape[0]
-                    elif vec.shape[0] != dim:
-                        raise ValueError(f"Inconsistent embedding dim: expected {dim}, got {vec.shape[0]}")
                     vectors.append(vec)
+
                 if len(vectors) == turn_vectors_before:
                     empty_turns += 1
-        # Legacy format: single embedding per row under 'embeddings'
-        elif "embeddings" in obj:
-            vec = np.asarray(obj["embeddings"], dtype=np.float32)
-            if vec.ndim != 1:
-                raise ValueError(f"Expected 1D embedding vector, got shape {vec.shape}")
-            if dim == -1:
-                dim = vec.shape[0]
-            elif vec.shape[0] != dim:
-                raise ValueError(f"Inconsistent embedding dim: expected {dim}, got {vec.shape[0]}")
-            vectors.append(vec)
-            turns_total += 1
+
         if len(vectors) == row_vectors_before:
             empty_rows += 1
 
@@ -87,6 +75,41 @@ def ensure_embeddings_npy(npy_path: str, jsonl_path: str = EMBEDDINGS_JSONL, l2_
         os.makedirs(dir_name, exist_ok=True)
     np.save(npy_path, arr)
     return arr
+
+def ensure_conversations_jsonl(conv_path: str = CONVERSATIONS_JSONL, jsonl_path: str = EMBEDDINGS_JSONL) -> None:
+    if os.path.exists(conv_path):
+        return
+
+    source_rows = read_jsonl(jsonl_path)
+    flat_rows: List[dict] = []
+    for obj in source_rows:
+        turns = obj.get("conversation_turns", [])
+        for turn_idx, turn in enumerate(turns):
+            speaker = turn.get("speaker", "")
+
+            text = turn.get("text")
+            if text is None:
+                # If the turn is a dict like {"person1": "hi"}, grab the first non
+                # reserved value.
+                for k, v in turn.items():
+                    if k not in {"speaker", "embeddings"}:
+                        text = v
+                        break
+            if text is None:
+                text = ""
+
+            emb_list = turn.get("embeddings", [])
+            emb_count = len(emb_list)
+            if emb_count == 0:
+                continue  # mirror ensure_embeddings_npy: skip turns with no embeddings
+
+            for emb_idx in range(emb_count):
+                flat_rows.append({"text": text})
+
+    if not flat_rows:
+        raise ValueError(f"No turns found in {jsonl_path}; cannot build {conv_path}")
+
+    write_jsonl(conv_path, flat_rows)
 
 def read_jsonl(jsonl_path: str) -> List[dict]:
     rows: List[dict] = []

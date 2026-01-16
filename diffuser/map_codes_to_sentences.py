@@ -7,57 +7,35 @@ import torch
 
 # Defaults (edit as needed)
 CHECKPOINT_PATH = Path("checkpoints/vqvae.pt")
-SENTENCE_EMBEDDINGS_PATH = Path("sentence_embeddings.jsonl")
-CONVERSATION_PATH = Path("conversation_turns.jsonl")
+SENTENCE_EMBEDDINGS_NPY = Path("embeddings.npy")
+SENTENCE_TEXT_JSONL = Path("conversation_text.jsonl")  # 1:1 with embeddings.npy
 OUT_PATH = Path("code_to_sentences.jsonl")
 TOP_K = 5
 BATCH_SIZE = 512
 
-
 def load_sentence_vectors(
-    sentence_embeddings_path: Path, conversation_path: Path
+    embeddings_npy_path: Path, sentence_text_jsonl: Path
 ) -> Tuple[np.ndarray, List[Dict[str, Any]]]:
-    """Load sentence vectors and metadata aligned to conversation turns."""
-    with conversation_path.open("r") as f:
-        conv = json.load(f)
-    with sentence_embeddings_path.open("r") as f:
-        sent = json.load(f)
+    """Load sentence vectors from .npy and texts from JSONL (1:1 order)."""
+    vectors = np.load(embeddings_npy_path).astype(np.float32)
 
-    conv_turns = conv.get("conversation_turns", [])
-    sent_turns = sent.get("conversation_turns", [])
-    if len(conv_turns) != len(sent_turns):
+    texts: List[str] = []
+    with sentence_text_jsonl.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            obj = json.loads(line)
+            texts.append(obj.get("text", ""))
+
+    if vectors.shape[0] != len(texts):
         raise ValueError(
-            f"Turn count mismatch: conversation has {len(conv_turns)} turns, "
-            f"sentence embeddings has {len(sent_turns)} turns"
+            f"Length mismatch: embeddings {vectors.shape[0]} vs texts {len(texts)} "
+            f"from {sentence_text_jsonl}"
         )
 
-    vectors: List[np.ndarray] = []
-    meta: List[Dict[str, Any]] = []
-    for turn_idx, (conv_turn, sent_turn) in enumerate(zip(conv_turns, sent_turns)):
-        # conv_turn is expected to be a dict with a single speaker key -> utterance text
-        speaker_keys = list(conv_turn.keys())
-        text = conv_turn.get(speaker_keys[0], "") if speaker_keys else ""
-        speaker = sent_turn.get("speaker") or (speaker_keys[0] if speaker_keys else "")
-
-        embedding_list = sent_turn.get("embeddings", [])
-        for emb_idx, vec in enumerate(embedding_list):
-            arr = np.asarray(vec, dtype=np.float32)
-            vectors.append(arr)
-            meta.append(
-                {
-                    "text": text,
-                    "speaker": speaker,
-                    "turn_index": turn_idx,
-                    "embedding_index": emb_idx,
-                }
-            )
-
-    if not vectors:
-        raise ValueError("No sentence embeddings found")
-
-    matrix = np.vstack(vectors)
-    return matrix, meta
-
+    meta = [{"text": t, "sentence_index": i} for i, t in enumerate(texts)]
+    return vectors, meta
 
 def l2_topk_numpy(
     codes: np.ndarray, sentences: np.ndarray, k: int, batch_size: int = 512
@@ -84,7 +62,6 @@ def l2_topk_numpy(
 
     return dist_out, idx_out
 
-
 def load_codebook_from_checkpoint(ckpt_path: Path) -> np.ndarray:
     """Load codebook weights from a saved VQ-VAE checkpoint."""
     ckpt = torch.load(ckpt_path, map_location="cpu")
@@ -107,16 +84,15 @@ def load_codebook_from_checkpoint(ckpt_path: Path) -> np.ndarray:
 
     return weights.cpu().numpy().astype(np.float32)
 
-
 def build_mapping(
     checkpoint_path: Path,
-    sentence_embeddings_path: Path,
-    conversation_path: Path,
+    sentence_embeddings_npy: Path,
+    sentence_text_jsonl: Path,
     out_path: Path,
     k: int,
     batch_size: int,
 ) -> None:
-    sentences, meta = load_sentence_vectors(sentence_embeddings_path, conversation_path)
+    sentences, meta = load_sentence_vectors(sentence_embeddings_npy, sentence_text_jsonl)
     codes = load_codebook_from_checkpoint(checkpoint_path)
 
     if codes.ndim != 2:
@@ -137,9 +113,6 @@ def build_mapping(
                     {
                         "rank": rank + 1,
                         "sentence_index": int(sid),
-                        "turn_index": int(m["turn_index"]),
-                        "embedding_index": int(m["embedding_index"]),
-                        "speaker": m["speaker"],
                         "distance_l2": float(dist),
                         "text": m["text"],
                     }
@@ -148,17 +121,15 @@ def build_mapping(
 
     print(f"Wrote {out_path} with top-{k} neighbors for {codes.shape[0]} code vectors")
 
-
 def main() -> None:
     build_mapping(
         checkpoint_path=CHECKPOINT_PATH,
-        sentence_embeddings_path=SENTENCE_EMBEDDINGS_PATH,
-        conversation_path=CONVERSATION_PATH,
+        sentence_embeddings_npy=SENTENCE_EMBEDDINGS_NPY,
+        sentence_text_jsonl=SENTENCE_TEXT_JSONL,
         out_path=OUT_PATH,
         k=TOP_K,
         batch_size=BATCH_SIZE,
     )
-
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from diffuser.vq_vae.utils import set_seed, ensure_embeddings_npy, codebook_perplexity
+from diffuser.vq_vae.utils import set_seed, ensure_conversations_jsonl, ensure_embeddings_npy, codebook_perplexity
 from diffuser.vq_vae.dataset import EmbeddingDataset
 from diffuser.vq_vae.model import VQVAE
 from diffuser.vq_vae.losses import vqvae_loss
@@ -13,6 +13,7 @@ from diffuser.vq_vae.losses import vqvae_loss
 class VQVAEConfig:
     jsonl_path: str = "sentence_embeddings.jsonl"
     npy_path: str = "embeddings.npy"
+    conversations_path: str = "conversation_text.jsonl"
     checkpoint_path: str = "checkpoints/vqvae.pt"
     batch_size: int = 256
     epochs: int = 10
@@ -33,6 +34,8 @@ def train_vqvae(config: VQVAEConfig) -> None:
     ckpt_path.parent.mkdir(parents=True, exist_ok=True)
 
     embs = ensure_embeddings_npy(config.npy_path, jsonl_path=config.jsonl_path, l2_norm=config.l2_norm_embs)
+    ensure_conversations_jsonl(config.conversations_path, jsonl_path=config.jsonl_path)
+
     n, dim_in = embs.shape
     print(f"[data] embeddings: {n} x {dim_in} (saved at {config.npy_path})")
 
