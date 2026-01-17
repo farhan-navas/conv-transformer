@@ -1,17 +1,73 @@
+import json
 from collections import Counter
+from pathlib import Path
+from typing import Tuple
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import yaml
 
-JSONL_PATH = "sentence_cluster_ids.jsonl"
+# Defaults; can be overridden by config.yaml
+CONFIG_PATH = Path("config.yaml")
+RUN_VERSION_DEFAULT = "v0.1"
+OUTPUT_ROOT_DEFAULT = Path("runs")
+JSONL_REL_DEFAULT = Path("vqvae") / "checkpoints" / "sentence_cluster_ids.jsonl"
 OUT_PNG = "code_usage_hist.png"
 NUM_CODES = 128
 
-def main():
-    cnt = Counter()
+
+def resolve_jsonl_path(cfg_path: Path = CONFIG_PATH) -> Path:
+    with cfg_path.open("r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
+
+    core = cfg.get("core", {})
+    run_version = core.get("run_version", RUN_VERSION_DEFAULT)
+    output_root = Path(core.get("output_root", OUTPUT_ROOT_DEFAULT))
+    export_cfg = cfg.get("export_codes", {})
+
+    jsonl_override = export_cfg.get("jsonl_out")
+    if jsonl_override:
+        jsonl_path = Path(jsonl_override)
+        if not jsonl_path.is_absolute():
+            jsonl_path = output_root / run_version / "vqvae" / "checkpoints" / jsonl_path.name
+    else:
+        jsonl_path = output_root / run_version / JSONL_REL_DEFAULT
+
+    return jsonl_path
+
+def resolve_num_codes(cfg_path: Path = CONFIG_PATH) -> int:
+    cfg = {}
+    if cfg_path.exists():
+        with cfg_path.open("r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+
+    vqvae = cfg.get("vqvae", {})
+    return int(vqvae.get("num_codes", NUM_CODES))
+
+def load_counts(jsonl_path: Path) -> Tuple[Counter, int]:
+    cnt: Counter[int] = Counter()
     total = 0
 
-    K = NUM_CODES
+    with jsonl_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            obj = json.loads(line)
+            for speaker in obj.get("speakers", []):
+                ids = speaker.get("cluster_ids", []) or []
+                for cid in ids:
+                    if isinstance(cid, int):
+                        cnt[cid] += 1
+                        total += 1
+
+    return cnt, total
+
+def main():
+    jsonl_path = resolve_jsonl_path()
+    K = resolve_num_codes()
+    cnt, total = load_counts(jsonl_path)
+
     counts = np.zeros(K, dtype=np.int64)
     for k, v in cnt.items():
         if 0 <= k < K:
