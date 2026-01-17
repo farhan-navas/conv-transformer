@@ -11,7 +11,7 @@ import yaml
 CONFIG_PATH = Path("config.yaml")
 RUN_VERSION_DEFAULT = "v0.1"
 OUTPUT_ROOT_DEFAULT = Path("runs")
-JSONL_REL_DEFAULT = Path("vqvae") / "checkpoints" / "sentence_cluster_ids.jsonl"
+JSONL_REL_DEFAULT = Path("vqvae") / "sentence_cluster_ids.jsonl"
 OUT_PNG = "code_usage_hist.png"
 NUM_CODES = 128
 
@@ -29,7 +29,7 @@ def resolve_jsonl_path(cfg_path: Path = CONFIG_PATH) -> Path:
     if jsonl_override:
         jsonl_path = Path(jsonl_override)
         if not jsonl_path.is_absolute():
-            jsonl_path = output_root / run_version / "vqvae" / "checkpoints" / jsonl_path.name
+            jsonl_path = output_root / run_version / "vqvae" / jsonl_path.name
     else:
         jsonl_path = output_root / run_version / JSONL_REL_DEFAULT
 
