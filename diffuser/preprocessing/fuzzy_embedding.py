@@ -168,6 +168,7 @@ def build_sentence_embeddings(row_items: List[Dict[str, Any]], embedder: Sentenc
 
             turn_embs.append({
                 "speaker": speaker,
+                "text": text,
                 "embeddings": sent_emb_list,
             })
 
