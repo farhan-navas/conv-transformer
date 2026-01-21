@@ -101,10 +101,14 @@ def ensure_conversations_jsonl(conv_path: str = CONVERSATIONS_JSONL, jsonl_path:
             emb_list = turn.get("embeddings", [])
             emb_count = len(emb_list)
             if emb_count == 0:
-                continue  # mirror ensure_embeddings_npy: skip turns with no embeddings
+                continue  # mirror ensure_embeddings_npy, so skip turns with no embeddings
 
-            for emb_idx in range(emb_count):
-                flat_rows.append({"text": text})
+            if len(text) == emb_count:
+                for sent in text:
+                    flat_rows.append({"text": sent})
+            else:
+                for _ in range(emb_count):
+                    flat_rows.append({"text": text})
 
     if not flat_rows:
         raise ValueError(f"No turns found in {jsonl_path}; cannot build {conv_path}")
