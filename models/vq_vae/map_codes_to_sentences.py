@@ -5,9 +5,8 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import torch
 
-from diffuser.vq_vae.model import VQVAE
+from models.vq_vae.model import VQVAE
 
-# Defaults (edit as needed)
 CHECKPOINT_PATH = Path("checkpoints/vqvae.pt")
 SENTENCE_EMBEDDINGS_NPY = Path("embeddings.npy")
 SENTENCE_TEXT_JSONL = Path("conversation_text.jsonl")  # 1:1 with embeddings.npy

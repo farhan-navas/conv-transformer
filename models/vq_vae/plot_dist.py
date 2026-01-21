@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
-# Defaults; can be overridden by config.yaml
 CONFIG_PATH = Path("config.yaml")
 RUN_VERSION_DEFAULT = "v0.1"
 OUTPUT_ROOT_DEFAULT = Path("runs")

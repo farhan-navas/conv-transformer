@@ -5,15 +5,14 @@ from typing import Any, Dict
 
 import yaml
 
-from classifier.train import TrainConfig, train_model
-from classifier.data import DataConfig
-from classifier.attention import AttentionConfig, run_attention_dump
-from diffuser.preprocessing.label_speakers import LabelSpeakersConfig, label_speakers
-from diffuser.preprocessing.fuzzy_embedding import FuzzyEmbeddingConfig, create_embeddings
-from diffuser.vq_vae.train import VQVAEConfig, train_vqvae
-from diffuser.vq_vae.export_codes import ExportCodesConfig, export_codes
-from diffuser.map_codes_to_sentences import build_mapping as map_codes_build
-
+from models.classifier.train import TrainConfig, train_model
+from models.classifier.data import DataConfig
+from models.classifier.attention import AttentionConfig, run_attention_dump
+from models.preprocessing.label_speakers import LabelSpeakersConfig, label_speakers
+from models.preprocessing.fuzzy_embedding import FuzzyEmbeddingConfig, create_embeddings
+from models.vq_vae.train import VQVAEConfig, train_vqvae
+from models.vq_vae.export_codes import ExportCodesConfig, export_codes
+from models.vq_vae.map_codes_to_sentences import build_mapping as map_codes_build
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:

@@ -5,8 +5,8 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from diffuser.vq_vae.dataset import EmbeddingDataset
-from diffuser.vq_vae.model import VQVAE
+from models.vq_vae.dataset import EmbeddingDataset
+from models.vq_vae.model import VQVAE
 
 @dataclass
 class ExportCodesConfig:
